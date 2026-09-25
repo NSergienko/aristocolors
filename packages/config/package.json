@@ -1,0 +1,15 @@
+{
+  "name": "@aristocolors/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared configurations (TypeScript, ESLint, Prettier, Tailwind) for AristoColors",
+  "exports": {
+    "./typescript/base": "./typescript/base.json",
+    "./typescript/node": "./typescript/node.json",
+    "./typescript/react": "./typescript/react.json",
+    "./eslint/base": "./eslint/base.js",
+    "./prettier": "./prettier/.prettierrc.json",
+    "./tailwind": "./tailwind/preset.js"
+  },
+  "files": ["typescript", "eslint", "prettier", "tailwind"]
+}
