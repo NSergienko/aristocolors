@@ -1,0 +1,23 @@
+{
+  "name": "@aristocolors/storage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare R2 Bucket client, path builder, CORS config, and Pre-signed URL operations for AristoColors",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx test/storage.test.ts"
+  },
+  "dependencies": {
+    "@aristocolors/contracts": "workspace:*",
+    "@aws-sdk/client-s3": "^3.758.0",
+    "@aws-sdk/s3-request-presigner": "^3.758.0"
+  },
+  "devDependencies": {
+    "@aristocolors/config": "workspace:*"
+  }
+}
