@@ -1,0 +1,21 @@
+{
+  "name": "@aristocolors/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Canonical Zod schemas and TypeScript contracts for AristoColors",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx test/contracts.test.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@aristocolors/config": "workspace:*"
+  }
+}
