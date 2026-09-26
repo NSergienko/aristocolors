@@ -8,7 +8,8 @@
     "types": ["node"],
     "noEmit": true,
     "paths": {
-      "@aristocolors/contracts": ["../aristocolors-contracts/src/index.ts"]
+      "@aristocolors/contracts": ["../aristocolors-contracts/src/index.ts"],
+      "@aristocolors/storage": ["../storage/src/index.ts"]
     }
   },
   "include": ["src/**/*", "test/**/*", "drizzle.config.ts"]

@@ -13,8 +13,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx test/db-schema.test.ts",
+    "test:acceptance": "tsx test/phase0-acceptance.test.ts",
+    "benchmark": "tsx test/hnsw-benchmark.test.ts",
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "migrate": "tsx src/migrate.ts",
+    "seed": "tsx src/seed.ts"
   },
   "dependencies": {
     "@aristocolors/contracts": "workspace:*",
@@ -23,6 +26,7 @@
   },
   "devDependencies": {
     "@aristocolors/config": "workspace:*",
+    "@aristocolors/storage": "workspace:*",
     "drizzle-kit": "^0.31.9"
   }
 }
