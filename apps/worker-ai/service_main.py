@@ -1,12 +1,29 @@
+from __future__ import annotations
+
+import base64
+import io
 import json
 import sys
 import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
+from PIL import Image
+
+from src.aristocolors.adapters.base import ModelWeightNotCachedError
+from src.aristocolors.adapters.depth import DepthAnythingV2Adapter
+from src.aristocolors.adapters.dinov2 import DinoV2Adapter
+from src.aristocolors.adapters.matting import BiRefNetAdapter
+from src.aristocolors.extractor import AristoColorsExtractor
+from src.aristocolors.types import ImageBuffer
 from src.config import config
-from src.protocol import HealthResponse, RpcTaskRequest, RpcTaskResponse
-from src.weights import list_supported_models, check_cached_weights
+from src.protocol import (
+    ExtractProfilePayload,
+    HealthResponse,
+    RpcTaskRequest,
+    RpcTaskResponse,
+)
+from src.weights import check_cached_weights, list_supported_models
 
 config.assert_architectural_boundary_invariants()
 
@@ -34,6 +51,38 @@ def _build_health_response() -> HealthResponse:
     )
 
 
+def _decode_image_buffer_from_extract_profile_payload(payload: ExtractProfilePayload) -> ImageBuffer:
+    raw_bytes = payload.image.decode_bytes()
+
+    try:
+        with Image.open(io.BytesIO(raw_bytes)) as pil_image:
+            image_rgb = pil_image.convert("RGB")
+            width, height = image_rgb.size
+            rgb_bytes = image_rgb.tobytes()
+    except Exception as exc:
+        raise ValueError("Failed to decode extract_profile image payload into RGB image") from exc
+
+    expected_len = width * height * 3
+    if len(rgb_bytes) != expected_len:
+        raise ValueError(
+            f"Decoded RGB image size mismatch: expected {expected_len} bytes, got {len(rgb_bytes)}"
+        )
+
+    return ImageBuffer(
+        width=width,
+        height=height,
+        rgb_bytes=rgb_bytes,
+    )
+
+
+def _build_extractor() -> AristoColorsExtractor:
+    return AristoColorsExtractor(
+        dino_adapter=DinoV2Adapter(),
+        depth_adapter=DepthAnythingV2Adapter(),
+        matting_adapter=BiRefNetAdapter(),
+    )
+
+
 def handle_rpc_task(task: RpcTaskRequest) -> dict[str, Any]:
     """
     Stateless GPU/ML task execution router.
@@ -47,12 +96,16 @@ def handle_rpc_task(task: RpcTaskRequest) -> dict[str, Any]:
         }
 
     elif task.task_type == "extract_profile":
-        return {
-            "title": task.payload.get("title", "Untitled Style"),
-            "status": "ready_for_extraction",
-            "stateless": True,
-            "idempotencyKey": task.idempotency_key,
-        }
+        payload = ExtractProfilePayload.from_dict(task.payload)
+        image_buffer = _decode_image_buffer_from_extract_profile_payload(payload)
+
+        extractor = _build_extractor()
+        extracted = extractor.extract(
+            image=image_buffer,
+            source_asset_id=payload.source_asset_id,
+        )
+
+        return extracted.to_dict()
 
     elif task.task_type == "compile_conditioning":
         return {
@@ -99,11 +152,13 @@ class StatelessRpcHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/rpc/v1/compute":
             t0 = time.perf_counter()
-            content_length = int(self.headers.get("Content-Length", 0))
-            raw_body = self.rfile.read(content_length)
+            data: dict[str, Any] = {}
 
             try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                raw_body = self.rfile.read(content_length)
                 data = json.loads(raw_body.decode("utf-8"))
+
                 task = RpcTaskRequest.from_dict(data)
                 result = handle_rpc_task(task)
                 duration_ms = (time.perf_counter() - t0) * 1000.0
@@ -117,13 +172,21 @@ class StatelessRpcHandler(BaseHTTPRequestHandler):
                 )
                 self._send_json(200, resp.to_dict())
 
+            except ModelWeightNotCachedError as exc:
+                duration_ms = (time.perf_counter() - t0) * 1000.0
+                task_id = data.get("taskId") or data.get("task_id", "unknown")
+                resp = RpcTaskResponse(
+                    task_id=str(task_id),
+                    status="failed",
+                    result=None,
+                    error=f"Model weights not cached: {exc}",
+                    execution_time_ms=duration_ms,
+                )
+                self._send_json(503, resp.to_dict())
+
             except Exception as exc:
                 duration_ms = (time.perf_counter() - t0) * 1000.0
-                task_id = "unknown"
-                try:
-                    task_id = data.get("taskId") or data.get("task_id", "unknown")
-                except Exception:
-                    pass
+                task_id = data.get("taskId") or data.get("task_id", "unknown")
 
                 resp = RpcTaskResponse(
                     task_id=str(task_id),
@@ -179,6 +242,18 @@ try:
                 error=None,
                 execution_time_ms=duration_ms,
             ).to_dict()
+        except ModelWeightNotCachedError as exc:
+            duration_ms = (time.perf_counter() - t0) * 1000.0
+            raise HTTPException(
+                status_code=503,
+                detail=RpcTaskResponse(
+                    task_id=request.get("taskId", request.get("task_id", "unknown")),
+                    status="failed",
+                    result=None,
+                    error=f"Model weights not cached: {exc}",
+                    execution_time_ms=duration_ms,
+                ).to_dict(),
+            )
         except Exception as exc:
             duration_ms = (time.perf_counter() - t0) * 1000.0
             raise HTTPException(
