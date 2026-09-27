@@ -6,9 +6,33 @@ from typing import Any
 
 from src.config import config
 from src.protocol import HealthResponse, RpcTaskRequest, RpcTaskResponse
+from src.weights import list_supported_models, check_cached_weights
 
-# Ensure architectural boundary invariants at startup
 config.assert_architectural_boundary_invariants()
+
+
+def _compute_weights_cached() -> bool:
+    try:
+        model_keys = list_supported_models()
+        return all(check_cached_weights(model_key)["isCached"] for model_key in model_keys)
+    except Exception:
+        return False
+
+
+def _build_health_response() -> HealthResponse:
+    gpu_available, gpu_device = config.detect_gpu_device()
+    return HealthResponse(
+        status="ok",
+        runtime=f"python-{sys.version_info.major}.{sys.version_info.minor}",
+        stateless=True,
+        consumes_bullmq=False,
+        architecture_boundary="Node.js 22 Dispatcher -> Python 3.11 ML Runtime (RPC HTTP/gRPC)",
+        gpu_available=gpu_available,
+        gpu_device=gpu_device,
+        version=config.version,
+        weights_cached=_compute_weights_cached(),
+    )
+
 
 def handle_rpc_task(task: RpcTaskRequest) -> dict[str, Any]:
     """
@@ -23,7 +47,6 @@ def handle_rpc_task(task: RpcTaskRequest) -> dict[str, Any]:
         }
 
     elif task.task_type == "extract_profile":
-        # Verification stub for boundary verification; real extractor implemented in Step 3
         return {
             "title": task.payload.get("title", "Untitled Style"),
             "status": "ready_for_extraction",
@@ -32,7 +55,6 @@ def handle_rpc_task(task: RpcTaskRequest) -> dict[str, Any]:
         }
 
     elif task.task_type == "compile_conditioning":
-        # Verification stub for boundary verification; real adapters implemented in Step 4
         return {
             "targetProvider": task.payload.get("targetProvider", "diffusion_sdxl"),
             "status": "ready_for_compilation",
@@ -41,7 +63,6 @@ def handle_rpc_task(task: RpcTaskRequest) -> dict[str, Any]:
         }
 
     elif task.task_type == "render_photobash":
-        # Verification stub for pipeline dispatch
         return {
             "jobId": task.payload.get("jobId"),
             "status": "acknowledged",
@@ -71,18 +92,7 @@ class StatelessRpcHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path in ("/health", "/healthz", "/"):
-            gpu_available, gpu_device = config.detect_gpu_device()
-            health = HealthResponse(
-                status="ok",
-                runtime=f"python-{sys.version_info.major}.{sys.version_info.minor}",
-                stateless=True,
-                consumes_bullmq=False,
-                architecture_boundary="Node.js 22 Dispatcher -> Python 3.11 ML Runtime (RPC HTTP/gRPC)",
-                gpu_available=gpu_available,
-                gpu_device=gpu_device,
-                version=config.version,
-            )
-            self._send_json(200, health.to_dict())
+            self._send_json(200, _build_health_response().to_dict())
         else:
             self._send_json(404, {"error": "Not Found"})
 
@@ -142,7 +152,6 @@ def run_service(host: str = config.host, port: int = config.port):
         server.server_close()
 
 
-# Try exporting FastAPI app if installed (for production container runtime via uvicorn)
 try:
     from fastapi import FastAPI, HTTPException
 
@@ -154,17 +163,7 @@ try:
 
     @app.get("/health")
     def health_check():
-        gpu_available, gpu_device = config.detect_gpu_device()
-        return {
-            "status": "ok",
-            "runtime": f"python-{sys.version_info.major}.{sys.version_info.minor}",
-            "stateless": True,
-            "consumes_bullmq": False,
-            "architecture_boundary": "Node.js 22 Dispatcher -> Python 3.11 ML Runtime (RPC HTTP/gRPC)",
-            "gpu_available": gpu_available,
-            "gpu_device": gpu_device,
-            "version": config.version,
-        }
+        return _build_health_response().to_dict()
 
     @app.post("/rpc/v1/compute")
     def compute_rpc(request: dict[str, Any]):

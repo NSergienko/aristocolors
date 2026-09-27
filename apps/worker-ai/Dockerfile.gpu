@@ -1,0 +1,50 @@
+FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PREBAKE_WEIGHTS=false
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    MODEL_CACHE_DIR=/weights \
+    TORCH_HOME=/weights/torch \
+    HF_HOME=/weights/huggingface \
+    WARMUP_ON_STARTUP=true
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    curl \
+    ca-certificates \
+    git \
+    bash \
+ && add-apt-repository ppa:deadsnakes/ppa \
+ && apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-venv \
+    python3.11-distutils \
+ && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 \
+ && ln -sf /usr/bin/python3.11 /usr/bin/python \
+ && ln -sf /usr/local/bin/pip /usr/bin/pip \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /weights /weights/torch /weights/huggingface /app/scripts
+
+COPY apps/worker-ai/requirements-gpu.txt /app/requirements-gpu.txt
+RUN python -m pip install --upgrade pip setuptools wheel \
+ && python -m pip install -r /app/requirements-gpu.txt
+
+COPY apps/worker-ai /app
+
+RUN chmod +x /app/scripts/docker-entrypoint.sh
+
+RUN if [ "$PREBAKE_WEIGHTS" = "true" ]; then \
+      python /app/scripts/warmup_weights.py --download && \
+      python /app/scripts/warmup_weights.py --check-only --strict; \
+    fi
+
+EXPOSE 8000
+
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
+CMD ["python", "/app/service_main.py"]

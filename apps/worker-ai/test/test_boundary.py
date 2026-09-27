@@ -6,7 +6,6 @@ import time
 import urllib.request
 import urllib.error
 
-# Ensure parent directory is in python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
@@ -15,19 +14,19 @@ if parent_dir not in sys.path:
 from src.config import WorkerAiConfig
 from service_main import StatelessRpcHandler, HTTPServer
 
+
 def assert_true(condition: bool, message: str):
     if not condition:
         raise AssertionError(f"Test failed: {message}")
 
+
 print("=== Starting Phase 1 / Step 1: Python ML Runtime & Architectural Boundary Tests ===")
 
-# Test 1: Invariant Check - Python does NOT consume BullMQ
 print("1. Verifying BullMQ Boundary Invariant (Python must NOT consume BullMQ directly)...")
 config = WorkerAiConfig()
 assert_true(config.consumes_bullmq is False, "consumes_bullmq must be explicitly False")
 assert_true(config.stateless is True, "stateless must be explicitly True")
 
-# Test that setting forbidden BullMQ consumer keys triggers RuntimeError
 os.environ["BULLMQ_QUEUE_NAME"] = "photobash-render-queue"
 try:
     WorkerAiConfig.assert_architectural_boundary_invariants()
@@ -38,7 +37,6 @@ except RuntimeError as err:
 finally:
     del os.environ["BULLMQ_QUEUE_NAME"]
 
-# Test 2: Start Stateless RPC Server on local port
 TEST_PORT = 18888
 TEST_HOST = "127.0.0.1"
 server = HTTPServer((TEST_HOST, TEST_PORT), StatelessRpcHandler)
@@ -48,22 +46,34 @@ print(f"2. Started temporary in-process RPC server on http://{TEST_HOST}:{TEST_P
 time.sleep(0.1)
 
 try:
-    # Test 3: Healthcheck Endpoint
     print("3. Verifying GET /health endpoint...")
     req = urllib.request.Request(f"http://{TEST_HOST}:{TEST_PORT}/health")
     with urllib.request.urlopen(req) as resp:
         assert_true(resp.status == 200, f"Expected 200, got {resp.status}")
         data = json.loads(resp.read().decode("utf-8"))
-        assert_true(data["status"] == "ok", "Status must be ok")
+        assert_true(data["status"] == "ok", "status must be ok")
         assert_true(data["stateless"] is True, "Must report stateless=True")
-        assert_true(data["consumes_bullmq"] is False, "Must report consumes_bullmq=False")
+        assert_true(data["consumesBullmq"] is False, "Must report consumesBullmq=False")
         assert_true(
-            "Node.js 22 Dispatcher -> Python 3.11 ML Runtime" in data["architecture_boundary"],
-            "Must report correct architecture boundary",
+            "Node.js 22 Dispatcher -> Python 3.11 ML Runtime" in data["architectureBoundary"],
+            "Must report correct architectureBoundary",
         )
-        print("   [PASS] /health returned valid telemetry and verified boundary.")
+        assert_true(isinstance(data["gpuAvailable"], bool), "gpuAvailable must be boolean")
+        assert_true(isinstance(data["gpuDevice"], str), "gpuDevice must be string")
+        assert_true(isinstance(data["weightsCached"], bool), "weightsCached must be boolean")
 
-    # Test 4: RPC Compute Endpoint - Ping
+        forbidden_keys = {
+            "consumes_bullmq",
+            "architecture_boundary",
+            "gpu_available",
+            "gpu_device",
+            "weights_cached",
+        }
+        for key in forbidden_keys:
+            assert_true(key not in data, f"Health response must not expose snake_case key: {key}")
+
+        print("   [PASS] /health returned canonical camelCase telemetry and verified boundary.")
+
     print("4. Verifying POST /rpc/v1/compute (Ping)...")
     payload = {
         "taskId": "task-test-001",
@@ -85,7 +95,6 @@ try:
         assert_true(res_data["executionTimeMs"] >= 0, "Execution time must be measured")
         print("   [PASS] RPC Ping task executed cleanly.")
 
-    # Test 5: RPC Compute Endpoint - GenerationJobPayload Task
     print("5. Verifying POST /rpc/v1/compute with GenerationJobPayload attributes...")
     job_payload = {
         "taskId": "task-render-100",
@@ -137,7 +146,6 @@ try:
         assert_true(res_data["result"]["stateless"] is True, "Result must maintain stateless flag")
         print("   [PASS] Photobash render task dispatched and processed statelessly.")
 
-    # Test 6: Error Handling for Malformed Payload
     print("6. Verifying error handling for malformed RPC request...")
     bad_payload = {"someRandomField": 123}
     req = urllib.request.Request(

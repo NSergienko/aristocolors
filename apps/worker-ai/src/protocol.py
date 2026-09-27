@@ -1,5 +1,6 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Any, Optional
+
 
 @dataclass
 class HealthResponse:
@@ -11,9 +12,21 @@ class HealthResponse:
     gpu_available: bool
     gpu_device: str
     version: str
+    weights_cached: bool
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {
+            "status": self.status,
+            "runtime": self.runtime,
+            "stateless": self.stateless,
+            "consumesBullmq": self.consumes_bullmq,
+            "architectureBoundary": self.architecture_boundary,
+            "gpuAvailable": self.gpu_available,
+            "gpuDevice": self.gpu_device,
+            "version": self.version,
+            "weightsCached": self.weights_cached,
+        }
+
 
 @dataclass
 class RpcTaskRequest:
@@ -25,7 +38,6 @@ class RpcTaskRequest:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "RpcTaskRequest":
-        # Support both camelCase (TypeScript) and snake_case (Python)
         task_id = data.get("taskId") or data.get("task_id")
         idempotency_key = data.get("idempotencyKey") or data.get("idempotency_key")
         task_type = data.get("taskType") or data.get("task_type")
@@ -47,16 +59,16 @@ class RpcTaskRequest:
             timeout_ms=int(timeout_ms),
         )
 
+
 @dataclass
 class RpcTaskResponse:
     task_id: str
-    status: str  # "completed" | "failed"
+    status: str
     result: Optional[dict[str, Any]]
     error: Optional[str]
     execution_time_ms: float
 
     def to_dict(self) -> dict[str, Any]:
-        # Return camelCase for direct Node.js TypeScript consumers
         return {
             "taskId": self.task_id,
             "status": self.status,
