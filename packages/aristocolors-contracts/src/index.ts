@@ -9,4 +9,5 @@ export * from './manifest';
 export * from './job';
 export * from './credit';
 export * from './entitlements';
+export * from './conditioning';
 export * from './rpc';

@@ -16,6 +16,7 @@ from src.aristocolors.adapters.dinov2 import DinoV2Adapter
 from src.aristocolors.adapters.matting import BiRefNetAdapter
 from src.aristocolors.extractor import AristoColorsExtractor
 from src.aristocolors.types import ImageBuffer
+from src.conditioning import ConditioningCompiler
 from src.config import config
 from src.protocol import (
     ExtractProfilePayload,
@@ -26,6 +27,8 @@ from src.protocol import (
 from src.weights import check_cached_weights, list_supported_models
 
 config.assert_architectural_boundary_invariants()
+
+_default_conditioning_compiler = ConditioningCompiler()
 
 
 def _compute_weights_cached() -> bool:
@@ -108,12 +111,22 @@ def handle_rpc_task(task: RpcTaskRequest) -> dict[str, Any]:
         return extracted.to_dict()
 
     elif task.task_type == "compile_conditioning":
-        return {
-            "targetProvider": task.payload.get("targetProvider", "diffusion_sdxl"),
-            "status": "ready_for_compilation",
-            "stateless": True,
-            "idempotencyKey": task.idempotency_key,
-        }
+        profile = task.payload.get("profile")
+        target_provider = task.payload.get("targetProvider")
+        options = task.payload.get("options")
+
+        if profile is None:
+            raise ValueError("compile_conditioning requires payload.profile")
+        if not isinstance(target_provider, str) or not target_provider.strip():
+            raise ValueError("compile_conditioning requires payload.targetProvider")
+        if options is not None and not isinstance(options, dict):
+            raise ValueError("compile_conditioning payload.options must be an object when provided")
+
+        return _default_conditioning_compiler.compile(
+            profile=profile,
+            target_provider=target_provider,
+            options=options,
+        )
 
     elif task.task_type == "render_photobash":
         return {
