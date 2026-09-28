@@ -10,12 +10,14 @@ import type Redis from 'ioredis';
 import type { DispatcherConfig } from './config';
 import { IdempotencyLockManager, type IdempotencyRecord } from './idempotency';
 import { PythonMlRpcClient } from './rpc-client';
+import type { SSEBroadcaster } from './sse/broadcaster';
 
 export interface BullMqDispatcherWorkerOptions {
   config: DispatcherConfig;
   rpcClient?: PythonMlRpcClient;
   idempotencyManager?: IdempotencyLockManager;
   redis?: Redis | null;
+  broadcaster?: SSEBroadcaster;
 }
 
 export class DuplicateActiveExecutionError extends Error {
@@ -36,6 +38,7 @@ export class BullMqDispatcherWorker {
   private readonly idempotencyManager: IdempotencyLockManager;
   private readonly redis: Redis;
   private readonly ownsRedis: boolean;
+  private readonly broadcaster?: SSEBroadcaster;
   private worker: Worker<GenerationJobPayload, unknown, string> | null = null;
 
   constructor(options: BullMqDispatcherWorkerOptions) {
@@ -56,6 +59,7 @@ export class BullMqDispatcherWorker {
       new IdempotencyLockManager({
         redis: this.redis,
       });
+    this.broadcaster = options.broadcaster;
   }
 
   async start(concurrency = 3): Promise<void> {
@@ -110,6 +114,7 @@ export class BullMqDispatcherWorker {
       }
     }
 
+    await this.publishStartedEvent(payload);
     await this.reportProgress(job, 30);
 
     const rpcRequest: PythonMlRpcRequest = {
@@ -129,10 +134,12 @@ export class BullMqDispatcherWorker {
       await this.idempotencyManager.settleSuccess(payload.idempotencyKey, result);
 
       await this.reportProgress(job, 100);
+      await this.publishCompletedEvent(payload);
 
       return result;
     } catch (error) {
       await this.idempotencyManager.settleFailure(payload.idempotencyKey, error);
+      await this.publishFailedEvent(payload, error);
       throw error;
     }
   }
@@ -141,10 +148,109 @@ export class BullMqDispatcherWorker {
     job: Job<GenerationJobPayload, unknown, string>,
     progress: number,
   ): Promise<void> {
-    if (typeof job.updateProgress !== 'function') {
+    if (typeof job.updateProgress === 'function') {
+      await job.updateProgress(progress);
+    }
+
+    const parsedPayload = GenerationJobPayloadSchema.safeParse(job.data);
+    if (!parsedPayload.success) {
       return;
     }
 
-    await job.updateProgress(progress);
+    await this.publishProgressEvent(parsedPayload.data, progress);
+  }
+
+  private async publishStartedEvent(payload: GenerationJobPayload): Promise<void> {
+    if (!this.broadcaster) {
+      return;
+    }
+
+    await this.broadcaster.publish({
+      type: 'started',
+      generationId: payload.aristoColorsId,
+      createdAt: new Date().toISOString(),
+      payload: {
+        jobId: payload.jobId,
+        targetProvider: payload.targetProvider,
+        resolution: payload.resolution,
+        seed: payload.seed,
+        status: 'started',
+      },
+    });
+  }
+
+  private async publishProgressEvent(
+    payload: GenerationJobPayload,
+    progress: number,
+  ): Promise<void> {
+    if (!this.broadcaster) {
+      return;
+    }
+
+    await this.broadcaster.publish({
+      type: 'progress',
+      generationId: payload.aristoColorsId,
+      createdAt: new Date().toISOString(),
+      payload: {
+        jobId: payload.jobId,
+        status: 'progress',
+        progress: progress / 100,
+      },
+    });
+  }
+
+  private async publishCompletedEvent(payload: GenerationJobPayload): Promise<void> {
+    if (!this.broadcaster) {
+      return;
+    }
+
+    await this.broadcaster.publish({
+      type: 'completed',
+      generationId: payload.aristoColorsId,
+      createdAt: new Date().toISOString(),
+      payload: {
+        jobId: payload.jobId,
+        status: 'completed',
+        targetProvider: payload.targetProvider,
+        resolution: payload.resolution,
+        seed: payload.seed,
+      },
+    });
+  }
+
+  private async publishFailedEvent(
+    payload: GenerationJobPayload,
+    error: unknown,
+  ): Promise<void> {
+    if (!this.broadcaster) {
+      return;
+    }
+
+    await this.broadcaster.publish({
+      type: 'failed',
+      generationId: payload.aristoColorsId,
+      createdAt: new Date().toISOString(),
+      payload: {
+        jobId: payload.jobId,
+        status: 'failed',
+        error: this.formatError(error),
+      },
+    });
+  }
+
+  private formatError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message || error.name;
+    }
+
+    if (typeof error === 'string' && error.trim()) {
+      return error;
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Unknown error';
+    }
   }
 }

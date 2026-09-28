@@ -3,9 +3,20 @@ import {
   createBlendGatewayRouter,
   type BlendGatewayRouterOptions,
 } from './routes';
+import { createGenerationStreamHandler } from '../sse/handler';
+import { type SSEBroadcaster } from '../sse/broadcaster';
+import { type GenerationStreamReplayBuffer } from '../sse/replay-buffer';
+
+export interface BlendGatewayAppOptions extends BlendGatewayRouterOptions {
+  sse: {
+    broadcaster: SSEBroadcaster;
+    replayBuffer: GenerationStreamReplayBuffer;
+    heartbeatIntervalMs?: number;
+  };
+}
 
 export function createBlendGatewayApp(
-  options: BlendGatewayRouterOptions,
+  options: BlendGatewayAppOptions,
 ): Express {
   const app = express();
 
@@ -17,6 +28,15 @@ export function createBlendGatewayApp(
       service: 'dispatcher-gateway',
     });
   });
+
+  app.get(
+    '/api/v1/generations/:id/stream',
+    createGenerationStreamHandler({
+      broadcaster: options.sse.broadcaster,
+      replayBuffer: options.sse.replayBuffer,
+      heartbeatIntervalMs: options.sse.heartbeatIntervalMs,
+    }),
+  );
 
   app.use('/api/v1', createBlendGatewayRouter(options));
 

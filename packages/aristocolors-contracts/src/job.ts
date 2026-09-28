@@ -72,3 +72,63 @@ export const GenerationJobPayloadSchema = z.object({
   compilerDirectives: z.record(z.string(), z.unknown()).optional(),
 });
 export type GenerationJobPayload = z.infer<typeof GenerationJobPayloadSchema>;
+
+export const GenerationStreamEventTypeSchema = z.enum([
+  'started',
+  'progress',
+  'completed',
+  'failed',
+]);
+export type GenerationStreamEventType = z.infer<typeof GenerationStreamEventTypeSchema>;
+
+export const GenerationStreamEventSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('started'),
+    seq: z.number().int().positive(),
+    generationId: z.string().uuid(),
+    createdAt: z.string().datetime(),
+    payload: z.object({
+      jobId: z.string().min(1),
+      targetProvider: TargetProviderSchema,
+      resolution: TargetResolutionSchema,
+      seed: z.number().int(),
+      status: z.string().min(1),
+    }),
+  }),
+  z.object({
+    type: z.literal('progress'),
+    seq: z.number().int().positive(),
+    generationId: z.string().uuid(),
+    createdAt: z.string().datetime(),
+    payload: z.object({
+      jobId: z.string().min(1),
+      status: z.string().min(1),
+      progress: z.number().min(0).max(1),
+    }),
+  }),
+  z.object({
+    type: z.literal('completed'),
+    seq: z.number().int().positive(),
+    generationId: z.string().uuid(),
+    createdAt: z.string().datetime(),
+    payload: z.object({
+      jobId: z.string().min(1),
+      status: z.string().min(1),
+      targetProvider: TargetProviderSchema,
+      resolution: TargetResolutionSchema,
+      seed: z.number().int(),
+    }),
+  }),
+  z.object({
+    type: z.literal('failed'),
+    seq: z.number().int().positive(),
+    generationId: z.string().uuid(),
+    createdAt: z.string().datetime(),
+    payload: z.object({
+      jobId: z.string().min(1),
+      status: z.string().min(1),
+      error: z.string().min(1),
+    }),
+  }),
+]);
+export type GenerationStreamEvent = z.infer<typeof GenerationStreamEventSchema>;

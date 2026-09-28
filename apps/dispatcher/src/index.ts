@@ -4,3 +4,4 @@ export * from './idempotency';
 export * from './worker';
 export * from './queue';
 export * from './gateway';
+export * from './sse';
