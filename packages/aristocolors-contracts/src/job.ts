@@ -31,6 +31,28 @@ export const GenerationProvenanceSchema = z.object({
 });
 export type GenerationProvenance = z.infer<typeof GenerationProvenanceSchema>;
 
+export const BlendRequestSchema = z.object({
+  targetProvider: TargetProviderSchema,
+  resolution: TargetResolutionSchema,
+  harmonizationIntensity: z.number().min(0).max(1).default(0.85),
+  seed: z.number().int().optional(),
+  aristoColorsId: z.string().uuid(),
+  manifestSnapshot: CanvasLayerManifestSchema,
+  options: z.record(z.string(), z.unknown()).optional(),
+});
+export type BlendRequest = z.infer<typeof BlendRequestSchema>;
+
+export const BlendResponseSchema = z.object({
+  success: z.boolean(),
+  generationId: z.string().uuid(),
+  jobId: z.string().min(1),
+  idempotencyKey: z.string().uuid(),
+  status: z.string().min(1),
+  isExisting: z.boolean(),
+  createdAt: z.string().datetime(),
+});
+export type BlendResponse = z.infer<typeof BlendResponseSchema>;
+
 export const GenerationJobPayloadSchema = z.object({
   idempotencyKey: z.string().uuid('Mandatory idempotencyKey UUIDv4 required'),
   jobId: z.string().min(1),
@@ -43,7 +65,7 @@ export const GenerationJobPayloadSchema = z.object({
   seed: z.number().int(),
   guidanceScale: z.number().positive().optional(),
   steps: z.number().int().positive().optional(),
-  creditReservationId: z.string().uuid('Valid reservation UUID required before dispatch'),
+  creditReservationId: z.string().uuid('Valid reservation UUID required before dispatch').optional(),
   priority: z.number().int().min(1).max(10).default(5),
   manifestSnapshot: CanvasLayerManifestSchema,
   provenance: GenerationProvenanceSchema,
