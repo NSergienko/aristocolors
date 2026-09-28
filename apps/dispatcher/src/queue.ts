@@ -16,6 +16,7 @@ export interface GenerationQueueOptions {
 
 export interface EnqueueGenerationJobOptions {
   jobOptions?: JobsOptions;
+  queuePriority?: number;
 }
 
 export class DispatcherGenerationQueue {
@@ -67,6 +68,15 @@ export class DispatcherGenerationQueue {
       ...options.jobOptions,
       jobId: validatedPayload.idempotencyKey,
     };
+
+    const resolvedPriority =
+      options.queuePriority ??
+      validatedPayload.priority ??
+      mergedJobOptions.priority;
+
+    if (typeof resolvedPriority === 'number') {
+      mergedJobOptions.priority = resolvedPriority;
+    }
 
     return this.queue.add(this.config.queueName, validatedPayload, mergedJobOptions);
   }

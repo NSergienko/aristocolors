@@ -8,6 +8,12 @@ import {
 } from '@aristocolors/contracts';
 import { IdempotencyLockManager, type IdempotencyRecord } from '../idempotency';
 import { DispatcherGenerationQueue } from '../queue';
+import {
+  type ConcurrencySlotManagerLike,
+  type ISubscriptionRepository,
+  resolveUserEntitlements,
+  validateCapabilityGates,
+} from './entitlements';
 
 export interface BlendGatewayGenerationRecord {
   generationId: string;
@@ -30,6 +36,8 @@ export interface BlendGatewayServiceOptions {
   idempotencyManager: IdempotencyLockManager;
   compilerVersion: string;
   repository: BlendGatewayRepository;
+  subscriptionRepository: ISubscriptionRepository;
+  concurrencySlotManager: ConcurrencySlotManagerLike;
   jobQueue?: DispatcherGenerationQueue | null;
 }
 
@@ -76,6 +84,8 @@ export class BlendGatewayService {
   private readonly idempotencyManager: IdempotencyLockManager;
   private readonly compilerVersion: string;
   private readonly repository: BlendGatewayRepository;
+  private readonly subscriptionRepository: ISubscriptionRepository;
+  private readonly concurrencySlotManager: ConcurrencySlotManagerLike;
   private readonly jobQueue: DispatcherGenerationQueue | null;
 
   constructor(options: BlendGatewayServiceOptions) {
@@ -86,6 +96,8 @@ export class BlendGatewayService {
     this.idempotencyManager = options.idempotencyManager;
     this.compilerVersion = options.compilerVersion;
     this.repository = options.repository;
+    this.subscriptionRepository = options.subscriptionRepository;
+    this.concurrencySlotManager = options.concurrencySlotManager;
     this.jobQueue = options.jobQueue ?? null;
   }
 
@@ -115,7 +127,18 @@ export class BlendGatewayService {
       }
     }
 
+    let queuedSlotAcquired = false;
+    let queuedSlotId: string | null = null;
+
     try {
+      const policy = await resolveUserEntitlements(params.userId, this.subscriptionRepository);
+
+      validateCapabilityGates(policy, {
+        resolution: params.request.resolution,
+        commercial4KUpscale: params.request.commercial4KUpscale ?? null,
+        canvasLayerCount: params.request.manifestSnapshot.layers.length,
+      });
+
       const seed = params.request.seed ?? randomInt(0, 2147483647);
       const generationId = randomUUID();
       const jobId = generationId;
@@ -142,6 +165,15 @@ export class BlendGatewayService {
 
       const manifestChecksumSha256 = sha256Json(manifestSnapshot);
 
+      queuedSlotId = jobId;
+      await this.concurrencySlotManager.acquire({
+        userId: params.userId,
+        slotId: queuedSlotId,
+        limit: policy.maxQueuedJobs,
+        scope: 'queued',
+      });
+      queuedSlotAcquired = true;
+
       const jobPayload: GenerationJobPayload = GenerationJobPayloadSchema.parse({
         idempotencyKey: params.idempotencyKey,
         jobId,
@@ -152,7 +184,7 @@ export class BlendGatewayService {
         resolution: params.request.resolution,
         harmonizationIntensity: params.request.harmonizationIntensity,
         seed,
-        priority: 5,
+        priority: policy.queuePriority,
         manifestSnapshot,
         provenance: {
           manifestVersion: manifestSnapshot.version,
@@ -197,6 +229,14 @@ export class BlendGatewayService {
 
       return response;
     } catch (error) {
+      if (queuedSlotAcquired && queuedSlotId) {
+        await this.concurrencySlotManager.release({
+          userId: params.userId,
+          slotId: queuedSlotId,
+          scope: 'queued',
+        });
+      }
+
       await this.idempotencyManager.settleFailure(params.idempotencyKey, error);
       throw error;
     }

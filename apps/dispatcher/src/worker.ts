@@ -11,6 +11,13 @@ import type { DispatcherConfig } from './config';
 import { IdempotencyLockManager, type IdempotencyRecord } from './idempotency';
 import { PythonMlRpcClient } from './rpc-client';
 import type { SSEBroadcaster } from './sse/broadcaster';
+import {
+  ConcurrencySlotManager,
+  type ConcurrencySlotManagerLike,
+  InMemorySubscriptionRepository,
+  type ISubscriptionRepository,
+  resolveUserEntitlements,
+} from './gateway/entitlements';
 
 export interface BullMqDispatcherWorkerOptions {
   config: DispatcherConfig;
@@ -18,6 +25,8 @@ export interface BullMqDispatcherWorkerOptions {
   idempotencyManager?: IdempotencyLockManager;
   redis?: Redis | null;
   broadcaster?: SSEBroadcaster;
+  subscriptionRepository?: ISubscriptionRepository;
+  concurrencySlotManager?: ConcurrencySlotManagerLike;
 }
 
 export class DuplicateActiveExecutionError extends Error {
@@ -39,6 +48,8 @@ export class BullMqDispatcherWorker {
   private readonly redis: Redis;
   private readonly ownsRedis: boolean;
   private readonly broadcaster?: SSEBroadcaster;
+  private readonly subscriptionRepository: ISubscriptionRepository;
+  private readonly concurrencySlotManager: ConcurrencySlotManagerLike;
   private worker: Worker<GenerationJobPayload, unknown, string> | null = null;
 
   constructor(options: BullMqDispatcherWorkerOptions) {
@@ -60,6 +71,13 @@ export class BullMqDispatcherWorker {
         redis: this.redis,
       });
     this.broadcaster = options.broadcaster;
+    this.subscriptionRepository =
+      options.subscriptionRepository ?? new InMemorySubscriptionRepository();
+    this.concurrencySlotManager =
+      options.concurrencySlotManager ??
+      new ConcurrencySlotManager({
+        store: this.redis,
+      });
   }
 
   async start(concurrency = 3): Promise<void> {
@@ -114,18 +132,35 @@ export class BullMqDispatcherWorker {
       }
     }
 
-    await this.publishStartedEvent(payload);
-    await this.reportProgress(job, 30);
+    await this.concurrencySlotManager.release({
+      userId: payload.userId,
+      slotId: payload.jobId,
+      scope: 'queued',
+    });
 
-    const rpcRequest: PythonMlRpcRequest = {
-      taskId: payload.jobId,
-      idempotencyKey: payload.idempotencyKey,
-      taskType: 'render_photobash',
-      payload,
-      timeoutMs: this.config.rpcTimeoutMs,
-    };
+    const policy = await resolveUserEntitlements(payload.userId, this.subscriptionRepository);
+
+    await this.concurrencySlotManager.acquire({
+      userId: payload.userId,
+      slotId: payload.jobId,
+      limit: policy.maxRunningJobs,
+      scope: 'running',
+    });
+
+    let runningSlotAcquired = true;
 
     try {
+      await this.publishStartedEvent(payload);
+      await this.reportProgress(job, 30);
+
+      const rpcRequest: PythonMlRpcRequest = {
+        taskId: payload.jobId,
+        idempotencyKey: payload.idempotencyKey,
+        taskType: 'render_photobash',
+        payload,
+        timeoutMs: this.config.rpcTimeoutMs,
+      };
+
       const rpcResponse = await this.rpcClient.compute(rpcRequest, this.config.rpcTimeoutMs);
 
       await this.reportProgress(job, 85);
@@ -141,6 +176,15 @@ export class BullMqDispatcherWorker {
       await this.idempotencyManager.settleFailure(payload.idempotencyKey, error);
       await this.publishFailedEvent(payload, error);
       throw error;
+    } finally {
+      if (runningSlotAcquired) {
+        await this.concurrencySlotManager.release({
+          userId: payload.userId,
+          slotId: payload.jobId,
+          scope: 'running',
+        });
+        runningSlotAcquired = false;
+      }
     }
   }
 

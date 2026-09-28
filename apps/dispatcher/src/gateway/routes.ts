@@ -1,5 +1,10 @@
 import { Router, type Request, type Response } from 'express';
 import { BlendRequestSchema } from '@aristocolors/contracts';
+import {
+  ConcurrencyLimitExceededError,
+  ForbiddenCapabilityError,
+  UnauthorizedError,
+} from './entitlements';
 import { BlendGatewayService, DuplicateBlendExecutionError } from './service';
 
 export interface BlendGatewayRouterOptions {
@@ -66,6 +71,31 @@ export function createBlendGatewayRouter(options: BlendGatewayRouterOptions): Ro
     } catch (error) {
       if (error instanceof DuplicateBlendExecutionError) {
         res.status(409).json({
+          success: false,
+          error: error.message,
+        });
+        return;
+      }
+
+      if (error instanceof UnauthorizedError) {
+        res.status(401).json({
+          success: false,
+          error: error.message,
+        });
+        return;
+      }
+
+      if (error instanceof ForbiddenCapabilityError) {
+        res.status(403).json({
+          success: false,
+          error: error.message,
+        });
+        return;
+      }
+
+      if (error instanceof ConcurrencyLimitExceededError) {
+        res.setHeader('Retry-After', '5');
+        res.status(429).json({
           success: false,
           error: error.message,
         });

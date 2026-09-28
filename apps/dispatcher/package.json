@@ -11,7 +11,8 @@
     "./sse": "./src/sse/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:entitlements": "tsx test/entitlements.test.ts"
   },
   "dependencies": {
     "@aristocolors/contracts": "workspace:*",
