@@ -18,6 +18,7 @@ from src.aristocolors.extractor import AristoColorsExtractor
 from src.aristocolors.types import ImageBuffer
 from src.conditioning import ConditioningCompiler
 from src.config import config
+from src.pipeline import MultiModelLatentBlendPipeline
 from src.protocol import (
     ExtractProfilePayload,
     HealthResponse,
@@ -29,6 +30,9 @@ from src.weights import check_cached_weights, list_supported_models
 config.assert_architectural_boundary_invariants()
 
 _default_conditioning_compiler = ConditioningCompiler()
+_default_latent_blend_pipeline = MultiModelLatentBlendPipeline(
+    conditioning_compiler=_default_conditioning_compiler,
+)
 
 
 def _compute_weights_cached() -> bool:
@@ -76,6 +80,46 @@ def _decode_image_buffer_from_extract_profile_payload(payload: ExtractProfilePay
         height=height,
         rgb_bytes=rgb_bytes,
     )
+
+
+def _decode_base64_image_to_pil(value: str, *, field_name: str) -> Image.Image:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"render_photobash requires payload.{field_name} as a non-empty base64 string")
+
+    raw_bytes = base64.b64decode(value)
+    try:
+        with Image.open(io.BytesIO(raw_bytes)) as pil_image:
+            return pil_image.copy()
+    except Exception as exc:
+        raise ValueError(f"Failed to decode render_photobash payload.{field_name} image") from exc
+
+
+def _encode_pil_image_to_base64_png(image: Image.Image) -> str:
+    output = io.BytesIO()
+    image.save(output, format="PNG")
+    return base64.b64encode(output.getvalue()).decode("ascii")
+
+
+def _extract_lora_params(payload: dict[str, Any], field_name: str) -> tuple[str | None, float | None]:
+    raw = payload.get(field_name)
+    if raw is None:
+        return None, None
+    if not isinstance(raw, dict):
+        raise ValueError(f"render_photobash payload.{field_name} must be an object when provided")
+
+    name = raw.get("name")
+    scale = raw.get("scale")
+
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError(f"render_photobash payload.{field_name}.name must be a non-empty string")
+
+    if scale is None:
+        return name, None
+
+    try:
+        return name, float(scale)
+    except Exception as exc:
+        raise ValueError(f"render_photobash payload.{field_name}.scale must be numeric") from exc
 
 
 def _build_extractor() -> AristoColorsExtractor:
@@ -129,11 +173,66 @@ def handle_rpc_task(task: RpcTaskRequest) -> dict[str, Any]:
         )
 
     elif task.task_type == "render_photobash":
+        payload = task.payload
+
+        if not isinstance(payload, dict):
+            raise ValueError("render_photobash requires object payload")
+
+        profile = payload.get("profile")
+        target_provider = payload.get("targetProvider")
+        options = payload.get("options")
+        seed = payload.get("seed")
+        base_image_b64 = payload.get("baseImage")
+        mask_image_b64 = payload.get("maskImage")
+
+        if profile is None:
+            raise ValueError("render_photobash requires payload.profile")
+        if not isinstance(target_provider, str) or not target_provider.strip():
+            raise ValueError("render_photobash requires payload.targetProvider")
+        if options is not None and not isinstance(options, dict):
+            raise ValueError("render_photobash payload.options must be an object when provided")
+        if seed is not None:
+            try:
+                seed = int(seed)
+            except Exception as exc:
+                raise ValueError("render_photobash payload.seed must be an integer when provided") from exc
+
+        base_image = _decode_base64_image_to_pil(base_image_b64, field_name="baseImage")
+        mask_image = _decode_base64_image_to_pil(mask_image_b64, field_name="maskImage")
+
+        style_lora_name, style_lora_scale = _extract_lora_params(payload, "styleLora")
+        detail_lora_name, detail_lora_scale = _extract_lora_params(payload, "detailLora")
+
+        rendered = _default_latent_blend_pipeline.run_from_images(
+            profile=profile,
+            target_provider=target_provider,
+            base_image=base_image,
+            mask_image=mask_image,
+            options=options,
+            seed=seed,
+            style_lora_name=style_lora_name,
+            style_lora_scale=style_lora_scale,
+            detail_lora_name=detail_lora_name,
+            detail_lora_scale=detail_lora_scale,
+        )
+
         return {
-            "jobId": task.payload.get("jobId"),
-            "status": "acknowledged",
+            "jobId": payload.get("jobId"),
+            "status": "completed",
             "stateless": True,
             "idempotencyKey": task.idempotency_key,
+            "seed": rendered.seed,
+            "provenanceSha256": rendered.provenance_sha256,
+            "compiledConditioning": rendered.compiled_conditioning,
+            "metadata": rendered.metadata,
+            "image": {
+                "mimeType": "image/png",
+                "encoding": "base64",
+                "mode": rendered.image_rgba.mode,
+                "width": rendered.image_rgba.size[0],
+                "height": rendered.image_rgba.size[1],
+                "data": _encode_pil_image_to_base64_png(rendered.image_rgba),
+            },
         }
 
     else:
