@@ -7,3 +7,7 @@ build
 coverage
 *.min.js
 *.min.css
+
+__pycache__/
+*.pyc
+
