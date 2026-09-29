@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -102,17 +101,11 @@ class MockMattingAdapter(MattingAdapter):
         image_rgb = image.convert("RGB")
         width, height = image_rgb.size
 
-        seed_bytes = hashlib.sha256(image_rgb.tobytes()).digest()
-        seed = int.from_bytes(seed_bytes[:8], "big", signed=False) % (2**32)
-        rng = np.random.default_rng(seed)
-
         y = np.linspace(-1.0, 1.0, height, dtype=np.float32)[:, None]
         x = np.linspace(-1.0, 1.0, width, dtype=np.float32)[None, :]
 
         radius = np.sqrt(x * x + y * y)
-        base = np.clip(1.0 - radius, 0.0, 1.0)
-        jitter = rng.uniform(-0.03, 0.03, size=(height, width)).astype(np.float32)
-        alpha_mask = np.clip(base + jitter, 0.0, 1.0).astype(np.float32)
+        alpha_mask = np.clip(1.0 - radius, 0.0, 1.0).astype(np.float32)
 
         return MattingResult(
             alpha_mask=alpha_mask,

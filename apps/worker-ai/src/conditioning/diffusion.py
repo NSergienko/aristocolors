@@ -67,26 +67,51 @@ class DiffusionConditioningAdapter(BaseConditioningAdapter):
         )
 
     def _build_palette_keywords(self, profile: AristoColorsProfileData) -> list[str]:
-        dominant_colors = profile.deterministicFeatures.dominantColors
+        if isinstance(profile, dict):
+            det = profile.get("deterministicFeatures", {})
+            dominant_colors = det.get("dominantColors", []) if isinstance(det, dict) else getattr(det, "dominantColors", [])
+        else:
+            det = getattr(profile, "deterministicFeatures", None)
+            dominant_colors = getattr(det, "dominantColors", []) if det else []
+
         keywords: list[str] = []
         for color in dominant_colors[:5]:
-            value = color.hex.strip().lower()
+            if isinstance(color, dict):
+                raw_value = color.get("hex", "")
+            else:
+                raw_value = getattr(color, "hex", "")
+            value = raw_value.strip().lower() if isinstance(raw_value, str) else ""
             if value:
                 keywords.append(value)
         return keywords
 
     def _build_lighting_prompt(self, profile: AristoColorsProfileData) -> str:
-        lighting = profile.inferredFeatures.lighting
+        inferred = self._get_profile_value(profile, "inferredFeatures")
+        lighting = self._get_profile_value(inferred, "lighting")
         if lighting is None:
             return "balanced ambient lighting"
 
-        temperature = lighting.temperature.strip() if lighting.temperature else "neutral"
-        uniformity = lighting.uniformity
-        ambient_fill_ratio = lighting.ambientFillRatio
-        contrast_ratio = lighting.contrastRatio.strip() if lighting.contrastRatio else "balanced contrast"
+        temperature_raw = self._get_profile_value(lighting, "temperature")
+        temperature = temperature_raw.strip() if isinstance(temperature_raw, str) and temperature_raw.strip() else "neutral"
 
-        azimuth_deg = self._coerce_float_from_mapping(lighting.brightness, "azimuthDeg")
-        elevation_deg = self._coerce_float_from_mapping(lighting.brightness, "elevationDeg")
+        uniformity_raw = self._get_profile_value(lighting, "uniformity")
+        uniformity = float(uniformity_raw) if isinstance(uniformity_raw, (int, float)) else 0.0
+
+        ambient_fill_ratio_raw = self._get_profile_value(lighting, "ambientFillRatio")
+        ambient_fill_ratio = (
+            float(ambient_fill_ratio_raw) if isinstance(ambient_fill_ratio_raw, (int, float)) else 0.0
+        )
+
+        contrast_ratio_raw = self._get_profile_value(lighting, "contrastRatio")
+        contrast_ratio = (
+            contrast_ratio_raw.strip()
+            if isinstance(contrast_ratio_raw, str) and contrast_ratio_raw.strip()
+            else "balanced contrast"
+        )
+
+        brightness = self._get_profile_value(lighting, "brightness")
+        azimuth_deg = self._coerce_float_from_mapping(brightness, "azimuthDeg")
+        elevation_deg = self._coerce_float_from_mapping(brightness, "elevationDeg")
 
         direction_phrase = self._format_direction_phrase(azimuth_deg, elevation_deg)
         uniformity_phrase = self._format_uniformity_phrase(uniformity)
@@ -102,13 +127,23 @@ class DiffusionConditioningAdapter(BaseConditioningAdapter):
         return ", ".join(part for part in parts if part)
 
     def _build_texture_prompt(self, profile: AristoColorsProfileData) -> str:
-        texture = profile.deterministicFeatures.textureAnalysis
+        deterministic = self._get_profile_value(profile, "deterministicFeatures")
+        texture = self._get_profile_value(deterministic, "textureAnalysis")
         if texture is None:
             return "refined material texture"
 
-        detail_phrase = self._format_edge_density_phrase(texture.edgeDensity)
-        entropy_phrase = self._format_entropy_phrase(texture.entropy)
-        contrast_phrase = f"surface contrast {texture.contrastRatio}"
+        edge_density_raw = self._get_profile_value(texture, "edgeDensity")
+        edge_density = float(edge_density_raw) if isinstance(edge_density_raw, (int, float)) else 0.0
+
+        entropy_raw = self._get_profile_value(texture, "entropy")
+        entropy = float(entropy_raw) if isinstance(entropy_raw, (int, float)) else 0.0
+
+        contrast_ratio_raw = self._get_profile_value(texture, "contrastRatio")
+        contrast_ratio = str(contrast_ratio_raw) if contrast_ratio_raw is not None else "balanced"
+
+        detail_phrase = self._format_edge_density_phrase(edge_density)
+        entropy_phrase = self._format_entropy_phrase(entropy)
+        contrast_phrase = f"surface contrast {contrast_ratio}"
 
         parts = [detail_phrase, entropy_phrase, contrast_phrase]
         return ", ".join(part for part in parts if part)
@@ -184,10 +219,18 @@ class DiffusionConditioningAdapter(BaseConditioningAdapter):
         return max(0.0, min(1.0, parsed))
 
     def _coerce_float_from_mapping(self, value: Any, key: str) -> float | None:
-        if not isinstance(value, dict):
-            return None
-        raw = value.get(key)
+        if isinstance(value, dict):
+            raw = value.get(key)
+        else:
+            raw = getattr(value, key, None)
         try:
             return float(raw)
         except (TypeError, ValueError):
             return None
+
+    def _get_profile_value(self, value: Any, key: str) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            return value.get(key)
+        return getattr(value, key, None)

@@ -13,6 +13,10 @@ from PIL import Image, ImageChops
 
 from src.aristocolors.adapters.base import ModelWeightNotCachedError
 from src.conditioning.compiler import ConditioningCompiler
+from src.pipeline.postprocess import EdgeRefinementStage, BaseUpscaler, get_default_upscaler
+
+
+_VOLATILE_CONDITIONING_FIELDS = frozenset({"compiledAt"})
 
 
 def _canonical_json(value: Any) -> str:
@@ -61,6 +65,41 @@ def _stable_lora_token(name: str, scale: float) -> str:
     return _sha256_hex_text(normalized)[:16]
 
 
+def _strip_volatile_conditioning_fields(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: _strip_volatile_conditioning_fields(nested_value)
+            for key, nested_value in value.items()
+            if key not in _VOLATILE_CONDITIONING_FIELDS
+        }
+    if isinstance(value, list):
+        return [_strip_volatile_conditioning_fields(item) for item in value]
+    if isinstance(value, tuple):
+        return [_strip_volatile_conditioning_fields(item) for item in value]
+    return value
+
+
+def _pil_to_image_buffer(image: Image.Image):
+    from src.aristocolors.types import ImageBuffer
+
+    image_rgba = _ensure_rgba(image)
+    width, height = image_rgba.size
+    return ImageBuffer(
+        width=width,
+        height=height,
+        rgb_bytes=image_rgba.convert("RGB").tobytes(),
+    )
+
+
+def _image_buffer_to_rgba_image(image_buffer: Any) -> Image.Image:
+    image = Image.frombytes(
+        "RGB",
+        (int(image_buffer.width), int(image_buffer.height)),
+        image_buffer.rgb_bytes,
+    )
+    return image.convert("RGBA")
+
+
 @dataclass(frozen=True)
 class LatentBlendLoRAConfig:
     name: str
@@ -74,22 +113,56 @@ class LatentBlendLoRAConfig:
 
 
 @dataclass(frozen=True)
+class LatentBlendOptions:
+    refine_edges: bool = True
+    enable_upscale: bool = False
+    upscale_target: str | None = None
+
+    @classmethod
+    def from_value(cls, value: dict[str, Any] | LatentBlendOptions | None) -> LatentBlendOptions:
+        if value is None:
+            return cls()
+        if isinstance(value, cls):
+            return value
+        return cls(
+            refine_edges=bool(value.get("refine_edges", True)),
+            enable_upscale=bool(value.get("enable_upscale", False)),
+            upscale_target=value.get("upscale_target"),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "refine_edges": self.refine_edges,
+            "enable_upscale": self.enable_upscale,
+            "upscale_target": self.upscale_target,
+        }
+
+
+@dataclass(frozen=True)
 class LatentBlendInput:
     profile: Any
     target_provider: str
     base_image: Image.Image
     mask_image: Image.Image
-    options: dict[str, Any] | None = None
+    options: dict[str, Any] | LatentBlendOptions | None = None
     seed: int | None = None
     style_lora: LatentBlendLoRAConfig | None = None
     detail_lora: LatentBlendLoRAConfig | None = None
 
-    def to_provenance_payload(self, compiled_conditioning: dict[str, Any], normalized_seed: int) -> dict[str, Any]:
+    def to_provenance_payload(
+        self,
+        compiled_conditioning: dict[str, Any],
+        normalized_seed: int,
+        *,
+        postprocess_state: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        normalized_options = LatentBlendOptions.from_value(self.options)
+        sanitized_conditioning = _strip_volatile_conditioning_fields(compiled_conditioning)
         return {
             "targetProvider": self.target_provider,
             "seed": normalized_seed,
-            "compiledConditioning": compiled_conditioning,
-            "options": self.options or {},
+            "compiledConditioning": sanitized_conditioning,
+            "options": normalized_options.to_dict(),
             "styleLora": self.style_lora.to_dict() if self.style_lora is not None else None,
             "detailLora": self.detail_lora.to_dict() if self.detail_lora is not None else None,
             "baseImage": {
@@ -102,6 +175,7 @@ class LatentBlendInput:
                 "height": self.mask_image.size[1],
                 "sha256": _sha256_hex_bytes(_image_to_png_bytes(_ensure_mask_l(self.mask_image, self.base_image.size))),
             },
+            "postprocess": postprocess_state or {},
         }
 
 
@@ -205,11 +279,12 @@ class CpuMockLatentBlendModelLoader(LatentBlendModelLoader):
     ) -> Image.Image:
         base_rgba = _ensure_rgba(base_image)
         mask_l = _ensure_mask_l(mask_image, base_rgba.size)
+        sanitized_conditioning = _strip_volatile_conditioning_fields(compiled_conditioning)
 
         provenance_basis = {
             "provider": pipeline.provider,
             "seed": seed,
-            "compiledConditioning": compiled_conditioning,
+            "compiledConditioning": sanitized_conditioning,
             "appliedLoras": list(pipeline.applied_loras),
         }
         basis_hash = _sha256_hex_text(_canonical_json(provenance_basis))
@@ -288,16 +363,84 @@ class MultiModelLatentBlendPipeline:
         *,
         conditioning_compiler: ConditioningCompiler | None = None,
         model_loader: LatentBlendModelLoader | None = None,
+        edge_refiner: EdgeRefinementStage | None = None,
+        upscaler: BaseUpscaler | None = None,
     ):
         self._conditioning_compiler = conditioning_compiler or ConditioningCompiler()
         self._model_loader = model_loader or CpuMockLatentBlendModelLoader()
+        self._edge_refiner = edge_refiner
+        self._upscaler = upscaler
+
+    def _is_mock_execution(self) -> bool:
+        return isinstance(self._model_loader, CpuMockLatentBlendModelLoader)
+
+    def _should_upscale_to_4k(self, options: LatentBlendOptions) -> bool:
+        if options.upscale_target == "4k":
+            return True
+        return bool(options.enable_upscale)
+
+    def _resolve_edge_refiner(self) -> EdgeRefinementStage:
+        if self._edge_refiner is not None:
+            return self._edge_refiner
+        return EdgeRefinementStage(use_mocks=self._is_mock_execution())
+
+    def _resolve_upscaler(self) -> BaseUpscaler:
+        if self._upscaler is not None:
+            return self._upscaler
+        return get_default_upscaler(use_mocks=self._is_mock_execution())
+
+    def _run_postprocess(
+        self,
+        image: Image.Image,
+        options: LatentBlendOptions,
+    ) -> tuple[Image.Image, dict[str, Any]]:
+        current = _ensure_rgba(image)
+        state: dict[str, Any] = {
+            "refineEdges": bool(options.refine_edges),
+            "enableUpscale": bool(options.enable_upscale),
+            "upscaleTarget": options.upscale_target,
+            "appliedEdgeRefinement": False,
+            "appliedUpscale": False,
+        }
+
+        if options.refine_edges:
+            edge_refiner = self._resolve_edge_refiner()
+            refined = edge_refiner.refine(_pil_to_image_buffer(current))
+            current = _image_buffer_to_rgba_image(refined["image"])
+            state["appliedEdgeRefinement"] = True
+            state["edgeRefinementOutput"] = {
+                "width": current.size[0],
+                "height": current.size[1],
+            }
+
+        if self._should_upscale_to_4k(options):
+            upscaler = self._resolve_upscaler()
+            upscaled = upscaler.upscale(
+                _pil_to_image_buffer(current),
+                target_width=3840,
+                target_height=2160,
+            )
+            current = _image_buffer_to_rgba_image(upscaled)
+            state["appliedUpscale"] = True
+            state["upscaleOutput"] = {
+                "target": "4k",
+                "width": current.size[0],
+                "height": current.size[1],
+            }
+
+        return current, state
 
     def run(self, request: LatentBlendInput) -> LatentBlendOutput:
         normalized_seed = _normalize_seed(request.seed)
+        normalized_options = LatentBlendOptions.from_value(request.options)
+
+        compiler_options = normalized_options.to_dict()
+        compiler_options["deterministicConditioning"] = True
+
         compiled_conditioning = self._conditioning_compiler.compile(
             profile=request.profile,
             target_provider=request.target_provider,
-            options=request.options,
+            options=compiler_options,
         )
 
         pipeline = self._model_loader.require_pipeline(request.target_provider)
@@ -320,11 +463,18 @@ class MultiModelLatentBlendPipeline:
             self._model_loader.clear_loras(pipeline)
 
         result_rgba = _ensure_rgba(result_image)
-        provenance_payload = request.to_provenance_payload(compiled_conditioning, normalized_seed)
+        postprocessed_image, postprocess_state = self._run_postprocess(result_rgba, normalized_options)
+        final_rgba = _ensure_rgba(postprocessed_image)
+
+        provenance_payload = request.to_provenance_payload(
+            compiled_conditioning,
+            normalized_seed,
+            postprocess_state=postprocess_state,
+        )
         provenance_payload["resultImage"] = {
-            "width": result_rgba.size[0],
-            "height": result_rgba.size[1],
-            "sha256": _sha256_hex_bytes(_image_to_png_bytes(result_rgba)),
+            "width": final_rgba.size[0],
+            "height": final_rgba.size[1],
+            "sha256": _sha256_hex_bytes(_image_to_png_bytes(final_rgba)),
         }
         provenance_sha256 = _sha256_hex_text(_canonical_json(provenance_payload))
 
@@ -343,10 +493,15 @@ class MultiModelLatentBlendPipeline:
                 "width": request.mask_image.size[0],
                 "height": request.mask_image.size[1],
             },
+            "postprocess": postprocess_state,
+            "outputImage": {
+                "width": final_rgba.size[0],
+                "height": final_rgba.size[1],
+            },
         }
 
         return LatentBlendOutput(
-            image_rgba=result_rgba,
+            image_rgba=final_rgba,
             seed=normalized_seed,
             provenance_sha256=provenance_sha256,
             compiled_conditioning=compiled_conditioning,
@@ -360,7 +515,7 @@ class MultiModelLatentBlendPipeline:
         target_provider: str,
         base_image: Image.Image,
         mask_image: Image.Image,
-        options: dict[str, Any] | None = None,
+        options: dict[str, Any] | LatentBlendOptions | None = None,
         seed: int | None = None,
         style_lora_name: str | None = None,
         style_lora_scale: float | None = None,

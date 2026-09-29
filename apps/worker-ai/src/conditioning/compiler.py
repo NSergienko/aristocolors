@@ -28,7 +28,8 @@ class ConditioningCompiler:
         options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         safe_options = copy.deepcopy(options) if options is not None else {}
-        compiled_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        deterministic_conditioning = self._is_deterministic_conditioning(safe_options)
+        compiled_at = None if deterministic_conditioning else datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
         profile_id = getattr(profile, "profileId", None)
         metadata = self._build_metadata(target_provider, safe_options)
@@ -38,8 +39,10 @@ class ConditioningCompiler:
             "schemaVersion": _SCHEMA_VERSION,
             "targetProvider": target_provider,
             "metadata": metadata,
-            "compiledAt": compiled_at,
         }
+
+        if compiled_at is not None:
+            result["compiledAt"] = compiled_at
 
         if isinstance(profile_id, str) and profile_id.strip():
             result["profileId"] = profile_id
@@ -92,6 +95,12 @@ class ConditioningCompiler:
         if target_provider == "flux_1_dev":
             return "flux_1_dev_via_diffusion_sdxl"
         return target_provider
+
+    def _is_deterministic_conditioning(self, options: dict[str, Any]) -> bool:
+        value = options.get("deterministicConditioning")
+        if isinstance(value, bool):
+            return value
+        return False
 
     def _to_json_serializable(self, value: Any) -> Any:
         if value is None:
