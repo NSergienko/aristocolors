@@ -1,14 +1,15 @@
+import '@/styles/globals.css';
 import type { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'AristoColors',
-  description: 'AristoColors web workspace',
+  title: 'AristoColors Studio',
+  description: 'AI-Powered Photo-Bashing Web Application & Style DNA Engine',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body style={{ backgroundColor: 'var(--surface-0)', color: 'var(--text-primary)', minHeight: '100vh' }}>{children}</body>
     </html>
   );
 }
