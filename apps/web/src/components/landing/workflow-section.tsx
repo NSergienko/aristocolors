@@ -41,6 +41,7 @@ export const WorkflowSection: React.FC = () => {
     <section
       id="workflow"
       style={{
+        scrollMarginTop: '72px',
         padding: 'clamp(48px, 7vh, 72px) clamp(20px, 4vw, 48px)',
         borderBottom: '1px solid var(--border-subtle)',
         backgroundColor: 'var(--surface-1)',

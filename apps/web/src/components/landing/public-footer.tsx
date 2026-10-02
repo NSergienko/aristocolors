@@ -6,7 +6,7 @@ export const PublicFooter: React.FC = () => {
       style={{
         backgroundColor: 'var(--surface-0)',
         borderTop: '1px solid var(--border-subtle)',
-        padding: '36px clamp(20px, 4vw, 48px) 24px clamp(20px, 4vw, 48px)',
+        padding: '28px clamp(20px, 4vw, 48px) 20px clamp(20px, 4vw, 48px)',
       }}
     >
       <div
@@ -15,21 +15,22 @@ export const PublicFooter: React.FC = () => {
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '28px',
+          gap: '20px',
         }}
       >
+        {/* Main Row: Brand + Short descriptor on left, compact links on right */}
         <div
           style={{
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '36px',
+            gap: '24px',
             flexWrap: 'wrap',
           }}
         >
-          {/* Brand & Description */}
-          <div style={{ maxWidth: '380px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          {/* Brand & Descriptor */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div
                 style={{
                   width: '22px',
@@ -45,80 +46,52 @@ export const PublicFooter: React.FC = () => {
                   A
                 </span>
               </div>
-              <span style={{ fontFamily: 'var(--font-brand)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <span style={{ fontFamily: 'var(--font-brand)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
                 AristoColors
               </span>
             </div>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-              AI photobashing and Style DNA harmonization for digital artists, game studios and commercial production teams.
+            <span style={{ color: 'var(--border-strong)', fontSize: '13px' }}>•</span>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+              AI photobashing and Style DNA harmonization for digital artists and studios.
             </p>
           </div>
 
-          {/* Navigation Columns */}
-          <div style={{ display: 'flex', gap: '48px', flexWrap: 'wrap' }}>
-            <div>
-              <span
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  color: 'var(--text-primary)',
-                  display: 'block',
-                  marginBottom: '10px',
-                }}
-              >
-                Platform
-              </span>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                <li><a href="#workflow" style={{ transition: 'color var(--transition-fast)' }}>Workflow</a></li>
-                <li><a href="#showcase" style={{ transition: 'color var(--transition-fast)' }}>Showcase</a></li>
-                <li><a href="#pricing" style={{ transition: 'color var(--transition-fast)' }}>Pricing</a></li>
-                <li><a href="/login" style={{ transition: 'color var(--transition-fast)' }}>Launch Studio</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <span
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  color: 'var(--text-primary)',
-                  display: 'block',
-                  marginBottom: '10px',
-                }}
-              >
-                Legal & Security
-              </span>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                <li><a href="#">Privacy Policy</a></li>
-                <li><a href="#">Terms of Service</a></li>
-                <li><a href="#">Security Overview</a></li>
-              </ul>
-            </div>
-          </div>
+          {/* Compact navigation & legal links */}
+          <nav
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '24px',
+              flexWrap: 'wrap',
+              fontSize: '13px',
+            }}
+          >
+            <a href="#workflow" className="nav-link">Workflow</a>
+            <a href="#showcase" className="nav-link">Showcase</a>
+            <a href="#pricing" className="nav-link">Pricing</a>
+            <a href="/login" className="nav-link">Launch Studio</a>
+            <span style={{ color: 'var(--border-medium)', margin: '0 -4px' }}>|</span>
+            <a href="#" className="nav-link" style={{ color: 'var(--text-tertiary)' }}>Privacy</a>
+            <a href="#" className="nav-link" style={{ color: 'var(--text-tertiary)' }}>Terms</a>
+          </nav>
         </div>
 
-        {/* Bottom Bar: Clear typography, copyright & WayForPay statement */}
+        {/* Small bottom copyright / legal row */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingTop: '18px',
+            paddingTop: '16px',
             borderTop: '1px solid var(--border-subtle)',
-            fontSize: '13px',
-            color: 'var(--text-secondary)',
+            fontSize: '12px',
+            color: 'var(--text-tertiary)',
             flexWrap: 'wrap',
-            gap: '12px',
+            gap: '8px',
           }}
         >
           <span>© {new Date().getFullYear()} AristoColors Studio. All rights reserved.</span>
-          <span style={{ color: 'var(--text-tertiary)' }}>
-            Billing and subscription management powered by WayForPay.
-          </span>
+          <span>Billing and subscription management powered by WayForPay.</span>
         </div>
       </div>
     </footer>
