@@ -55,6 +55,7 @@ export const MOCK_PROJECTS: readonly ProjectCardData[] = [
     resolution: '1920 × 1080',
     category: 'marketing',
     profileName: 'Obsidian Core',
+    imageUrl: '/artwork/obsidian-product.jpg',
     gridOverlay: true,
     gradientBackground: `
       radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.2) 0%, transparent 50%),
@@ -92,3 +93,7 @@ export const MOCK_PROJECTS: readonly ProjectCardData[] = [
     `,
   },
 ];
+
+export function getProjectById(id: string): ProjectCardData | undefined {
+  return MOCK_PROJECTS.find((p) => p.id === id);
+}

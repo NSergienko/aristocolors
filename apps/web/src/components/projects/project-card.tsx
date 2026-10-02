@@ -25,6 +25,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelect }) =
     <div
       onClick={() => onSelect?.(project.id)}
       className="card-base project-card"
+      style={{ cursor: 'pointer' }}
     >
       {/* Dominant Artwork Preview (16:9 aspect ratio, >60% of card) */}
       <div

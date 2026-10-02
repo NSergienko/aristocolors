@@ -110,7 +110,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           borderBottom: '1px solid var(--border-subtle)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <a
+          href="/"
+          title="Return to Landing"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
+        >
           {/* Chromatic Prism Logo Mark */}
           <div
             style={{
@@ -167,7 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </div>
           )}
-        </div>
+        </a>
       </div>
 
       {/* Navigation Items */}
