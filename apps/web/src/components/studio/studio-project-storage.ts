@@ -114,6 +114,24 @@ export async function saveStudioManifest(key: string, manifest: StoredStudioMani
   } finally { db.close(); }
 }
 
+export async function clearStudioManifest(key: string): Promise<void> {
+  const json = localStorage.getItem(key);
+  const canonical = json ? canonicalSchema.safeParse(JSON.parse(json)) : null;
+  const db = await openStorage();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction('manifests', 'readwrite');
+      const store = transaction.objectStore('manifests');
+      store.delete(key); // Remove the legacy manifest as well, so reset cannot restore it on F5.
+      if (canonical?.success) store.delete(canonical.data.assetKey);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('Resetting local storage was interrupted.'));
+    });
+    localStorage.removeItem(key);
+  } finally { db.close(); }
+}
+
 export function pixelsToPng(source: CanvasImageSource, width: number, height: number): Promise<Blob> {
   const canvas = document.createElement('canvas');
   canvas.width = width;

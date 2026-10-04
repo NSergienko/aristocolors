@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Canvas, FabricImage, util } from 'fabric';
-import { loadStudioManifest, saveStudioManifest, pixelsToPng, type StoredStudioManifest } from './studio-project-storage';
+import { loadStudioManifest, saveStudioManifest, clearStudioManifest, pixelsToPng, type StoredStudioManifest } from './studio-project-storage';
 import { removeSolidBackground } from './remove-solid-background';
 import { AristoColorsProfilePanel } from './aristocolors-profile-panel';
 import { applyLayerCrop, emptyCrop, type LayerCrop } from './studio-object-transform';
@@ -48,6 +49,9 @@ async function decodeImage(source: string): Promise<HTMLImageElement> {
 
 export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, localImportToken }: StepOneStudioProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const viewModeRef = useRef<'fit' | 'actual'>('fit');
+  const fitViewRef = useRef<(() => void) | null>(null);
+  const [viewMode, setViewMode] = useState<'fit' | 'actual'>('fit');
   const canvasRef = useRef<Canvas | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const baseReadyRef = useRef(false);
@@ -57,7 +61,12 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   const [error, setError] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>('move');
   const [brushSize, setBrushSize] = useState(40);
-  const [inspectorTab, setInspectorTab] = useState<'layers' | 'style'>('layers');
+  const [inspectorTab, setInspectorTab] = useState<'layers' | 'transform' | 'style'>('layers');
+  const [currentStep, setCurrentStep] = useState<'compose' | 'harmonize' | 'finish'>('compose');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'unsaved' | 'failed'>('idle');
+  const [resetting, setResetting] = useState(false);
+  const editEpochRef = useRef(0);
+  const suppressSaveRef = useRef(false);
   const [cutoutProcessing, setCutoutProcessing] = useState<'background' | 'silhouette' | null>(null);
   const [cutoutNotice, setCutoutNotice] = useState<string | null>(null);
   const [cutoutProgress, setCutoutProgress] = useState<string | null>(null);
@@ -90,6 +99,9 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   }
 
   function recordHistory(snapshot = captureState()) {
+    saveGenerationRef.current++;
+    suppressSaveRef.current = false;
+    setSaveStatus('unsaved');
     unsavedRef.current = true;
     undoRef.current.push(snapshot);
     if (undoRef.current.length > 30) undoRef.current.shift();
@@ -184,6 +196,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     canvasRef.current = canvas;
     baseReadyRef.current = false;
     setStorageReady(false);
+    suppressSaveRef.current = false;
     saveGenerationRef.current++;
     undoRef.current = [];
     redoRef.current = [];
@@ -202,10 +215,23 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     canvas.on('selection:created', updateSelection);
     canvas.on('selection:updated', updateSelection);
     canvas.on('selection:cleared', updateSelection);
-    const resize = new ResizeObserver(() => {
-      canvas.setDimensions({ width: Math.max(1, host.clientWidth), height: Math.max(1, host.clientHeight) });
-      canvas.requestRenderAll();
-    });
+    const fitCanvas = () => {
+      const availableHeight = Math.max(1, Math.min(host.clientHeight, window.innerHeight - 68));
+      const scale = viewModeRef.current === 'actual' ? 1 : Math.min(host.clientWidth / canvas.getWidth(), availableHeight / canvas.getHeight());
+      const width = Math.max(1, canvas.getWidth() * scale);
+      const height = Math.max(1, canvas.getHeight() * scale);
+      // Fit the display, preserving scene coordinates, transforms, and export resolution.
+      canvas.setDimensions({ width, height }, { cssOnly: true });
+      mount.style.width = `${width}px`;
+      mount.style.height = `${height}px`;
+      mount.style.flexShrink = '0';
+      host.style.overflow = viewModeRef.current === 'actual' ? 'auto' : 'hidden';
+      host.style.alignItems = height > host.clientHeight ? 'flex-start' : 'center';
+      host.style.justifyContent = width > host.clientWidth ? 'flex-start' : 'center';
+    };
+    fitViewRef.current = fitCanvas;
+    fitCanvas();
+    const resize = new ResizeObserver(fitCanvas);
     resize.observe(host);
 
     void (async () => {
@@ -213,6 +239,8 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         const storedManifest = await loadStudioManifest(storageKey);
         if (canvasRef.current !== canvas) return;
         if (storedManifest) {
+          canvas.setDimensions({ width: storedManifest.width, height: storedManifest.height });
+          fitCanvas();
           const restoredLayers: StudioLayer[] = [];
           const decodeBlob = async (blob: Blob) => {
             const url = URL.createObjectURL(blob);
@@ -279,6 +307,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
 
     return () => {
       resize.disconnect();
+      if (fitViewRef.current === fitCanvas) fitViewRef.current = null;
       if (canvasRef.current === canvas) {
         canvasRef.current = null;
         baseReadyRef.current = false;
@@ -290,9 +319,10 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!storageReady || !canvas || !layers.length) return;
+    if (!storageReady || !canvas || !layers.length || suppressSaveRef.current) return;
     const generation = ++saveGenerationRef.current;
     unsavedRef.current = true;
+    setSaveStatus('saving');
     void (async () => {
       try {
         const savedLayers = await Promise.all(layers.map(async (layer, zIndex) => {
@@ -313,14 +343,69 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         if (generation !== saveGenerationRef.current || canvasRef.current !== canvas) return;
         await saveStudioManifest(storageKey, { version: 1, title, selectedLayerId,
           width: canvas.getWidth(), height: canvas.getHeight(), layers: savedLayers },
-          () => generation === saveGenerationRef.current && canvasRef.current === canvas);
-        if (generation === saveGenerationRef.current) unsavedRef.current = false;
+          () => generation === saveGenerationRef.current && canvasRef.current === canvas && !suppressSaveRef.current);
+        if (generation === saveGenerationRef.current && !suppressSaveRef.current) {
+          unsavedRef.current = false;
+          setSaveStatus('saved');
+        }
       } catch (cause) {
         console.error('Saving the local project failed:', cause);
         setError(`Local project save failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+        if (generation === saveGenerationRef.current) setSaveStatus('failed');
       }
     })();
   }, [layers, selectedLayerId, storageReady, saveRevision, storageKey, title]);
+
+  function saveProject() {
+    if (!storageReady || !layers.length || resetting) return;
+    suppressSaveRef.current = false;
+    setSaveStatus('saving');
+    unsavedRef.current = true;
+    requestSave(current => current + 1);
+  }
+
+  async function resetCanvas() {
+    const canvas = canvasRef.current;
+    const base = layers.find(layer => layer.isBase);
+    if (!canvas || !base || resetting) return;
+    if (!window.confirm('Reset this canvas to its original artwork? Added layers and the saved composition will be removed.')) return;
+    setResetting(true);
+    editEpochRef.current++;
+    suppressSaveRef.current = true;
+    saveGenerationRef.current++;
+    setTool('move');
+    try {
+      await clearStudioManifest(storageKey);
+      if (canvasRef.current !== canvas) return;
+      canvas.discardActiveObject();
+      canvas.remove(...canvas.getObjects().filter(object => object !== base.object));
+      const image = base.originalSource;
+      base.object.setElement(image);
+      const scale = Math.min(canvas.getWidth() * 0.9 / image.naturalWidth, canvas.getHeight() * 0.9 / image.naturalHeight);
+      base.object.set({ left: (canvas.getWidth() - image.naturalWidth * scale) / 2,
+        top: (canvas.getHeight() - image.naturalHeight * scale) / 2, scaleX: scale, scaleY: scale,
+        angle: 0, flipX: false, flipY: false, opacity: 1, globalCompositeOperation: 'source-over', visible: true });
+      applyLayerCrop(base.object, emptyCrop());
+      base.object.setCoords();
+      canvas.moveObjectTo(base.object, 0);
+      masksRef.current.clear();
+      undoRef.current = [];
+      redoRef.current = [];
+      transformStartRef.current = null;
+      canvas.setActiveObject(base.object);
+      setLayers([base]);
+      setSelectedLayerId(base.id);
+      setCurrentStep('compose');
+      setCutoutNotice(null);
+      setError(null);
+      setSaveStatus('idle');
+      unsavedRef.current = false;
+      canvas.requestRenderAll();
+    } catch (cause) {
+      suppressSaveRef.current = false;
+      setError(`Canvas reset failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+    } finally { setResetting(false); }
+  }
 
   useEffect(() => {
     const protectPendingSave = (event: BeforeUnloadEvent) => {
@@ -365,6 +450,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
 
   useEffect(() => {
     const handleDelete = (event: KeyboardEvent) => {
+      if (resetting) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.closest('input, textarea, select') || target.isContentEditable)) return;
       const key = event.key.toLowerCase();
@@ -386,7 +472,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     };
     window.addEventListener('keydown', handleDelete);
     return () => window.removeEventListener('keydown', handleDelete);
-  }, [layers, selectedLayerId]);
+  }, [layers, selectedLayerId, resetting]);
 
   function toggleVisibility(layer: StudioLayer) {
     const canvas = canvasRef.current;
@@ -402,6 +488,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   }
 
   async function addImage(file: File) {
+    const epoch = editEpochRef.current;
     let source: string | undefined;
     try {
       if (!/^image\/(png|jpeg|webp)$/i.test(file.type) && !/\.(png|jpe?g|webp)$/i.test(file.name)) {
@@ -411,7 +498,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       if (!canvas || !baseReadyRef.current) throw new Error('Wait for the base artwork to finish loading.');
       source = URL.createObjectURL(file);
       const image = await decodeImage(source);
-      if (canvasRef.current !== canvas) return;
+      if (canvasRef.current !== canvas || epoch !== editEpochRef.current) return;
       insertImage(canvas, image, file.name, false);
       setError(null);
     } catch (cause) {
@@ -652,6 +739,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   }, [tool, brushSize, selectedLayerId, layers]);
 
   async function processCutout(kind: 'background' | 'silhouette') {
+    const epoch = editEpochRef.current;
     const layer = selectedImportedLayer;
     const canvas = canvasRef.current;
     if (!layer || !canvas || cutoutBusyRef.current) return;
@@ -689,7 +777,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       }
       url = URL.createObjectURL(png);
       const result = await decodeImage(url);
-      if (canvasRef.current !== canvas || !canvas.getObjects().includes(layer.object)) return;
+      if (canvasRef.current !== canvas || epoch !== editEpochRef.current || !canvas.getObjects().includes(layer.object)) return;
       // Process the immutable original; retain transform and mask coordinates at original dimensions.
       const pixels = document.createElement('canvas');
       pixels.width = original.naturalWidth;
@@ -801,16 +889,21 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   }
 
   return (
-    <main style={{ height: '100dvh', paddingBottom: 210, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: '#141619', color: '#e5e7eb' }}>
-      <header style={{ height: 64, flexShrink: 0, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #303238' }}>
-        <h1 style={{ fontSize: 16, fontWeight: 600 }}>{title}</h1>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button type="button" disabled={!undoRef.current.length} onClick={() => historyAction('undo')} title="Undo (Ctrl+Z)" style={{ padding: '8px 12px', borderRadius: 6, background: '#20232a', color: undoRef.current.length ? '#e5e7eb' : '#626976' }}>Undo</button>
-          <button type="button" disabled={!redoRef.current.length} onClick={() => historyAction('redo')} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" style={{ padding: '8px 12px', borderRadius: 6, background: '#20232a', color: redoRef.current.length ? '#e5e7eb' : '#626976' }}>Redo</button>
+    <main aria-busy={resetting} style={{ height: '100dvh', overflow: 'hidden', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: '#141619', color: '#e5e7eb', pointerEvents: resetting ? 'none' : undefined }}>
+      <header className="h-14" style={{ height: 56, minHeight: 56, maxHeight: 56, flexShrink: 0, padding: '0 16px', gap: 16, display: 'flex', alignItems: 'center', borderBottom: '1px solid #ffffff0a', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 0', minWidth: 0 }}>
+        <Link href="/projects" style={{ color: '#b8c8df', fontSize: 12, whiteSpace: 'nowrap' }}>← Back</Link>
+        <h1 title={title} style={{ fontSize: 13, fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</h1>
+        <button type="button" aria-label="Save project" title="Auto-save status · click to save now" disabled={!storageReady || resetting || saveStatus === 'saving'} onClick={saveProject} style={{ padding: '3px 6px', borderRadius: 4, background: 'transparent', color: saveStatus === 'failed' ? '#eaa8a8' : '#819c99', fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0, cursor: 'pointer' }}>{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? '● Saved' : saveStatus === 'failed' ? 'Save failed' : 'Auto-save'}</button>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={() => inputRef.current?.click()} style={{ padding: '9px 16px', borderRadius: 6, background: '#343842', color: '#fff', cursor: 'pointer' }}>+ Add Image</button>
-          <button type="button" onClick={exportComposition} style={{ padding: '9px 16px', borderRadius: 6, background: '#343842', color: '#fff', cursor: 'pointer' }}>Export Image</button>
+        <div aria-label="Workflow steps" style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 20, background: '#ffffff04', border: '1px solid #ffffff0a', flexShrink: 0 }}>
+          {([['compose', '01 Compose'], ['harmonize', '02 Harmonize'], ['finish', '03 Finish']] as const).map(([step, label]) =>
+            <button key={step} type="button" aria-current={currentStep === step ? 'step' : undefined} onClick={() => setCurrentStep(step)} style={{ fontSize: 10, padding: '5px 9px', borderRadius: 14, background: currentStep === step ? '#34445d' : 'transparent', color: currentStep === step ? '#e0eafb' : '#8796ac', whiteSpace: 'nowrap', cursor: 'pointer' }}>{label}</button>)}
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: '1 1 0', justifyContent: 'flex-end', minWidth: 'max-content' }}>
+          <button type="button" aria-label="Undo" disabled={!undoRef.current.length} onClick={() => historyAction('undo')} title="Undo (Ctrl+Z)" style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 5, background: 'transparent', color: undoRef.current.length ? '#b7c7df' : '#4a5260', cursor: 'pointer' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 4-5 5 5 5M4 9h10a6 6 0 0 1 0 12" /></svg></button>
+          <button type="button" aria-label="Redo" disabled={!redoRef.current.length} onClick={() => historyAction('redo')} title="Redo (Ctrl+Y)" style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 5, background: 'transparent', color: redoRef.current.length ? '#b7c7df' : '#4a5260', cursor: 'pointer' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 4 5 5-5 5M20 9H10a6 6 0 0 0 0 12" /></svg></button>
+          <button type="button" onClick={exportComposition} style={{ height: 30, padding: '0 12px', borderRadius: 5, background: '#8ccbd8', color: '#101b28', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' }}>Export Image</button>
         </div>
         <input ref={inputRef} type="file" hidden accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" onChange={event => {
           const file = event.currentTarget.files?.[0];
@@ -819,8 +912,9 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         }} />
       </header>
       {error && <p role="alert" style={{ margin: 0, padding: '10px 24px', color: '#fca5a5', background: '#342026' }}>{error}</p>}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <nav aria-label="Canvas tools" style={{ width: 160, flexShrink: 0, padding: 12, borderRight: '1px solid #ffffff0a', background: '#17191e', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden' }}>
+        <nav aria-label="Canvas tools" className="w-64" style={{ width: 256, flexShrink: 0, padding: 12, borderRight: '1px solid #ffffff0a', background: '#17191e', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button type="button" onClick={() => inputRef.current?.click()} style={{ padding: '10px 6px', marginBottom: 8, borderRadius: 6, background: '#8ccbd8', color: '#101b28', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ Add Layer / Image</button>
           {([['move', 'Move / Select', 'V'], ['eraser', 'Eraser', 'E'], ['brush', 'Brush / Inpaint Mask', 'B']] as const).map(([mode, label, shortcut]) => (
             <button key={mode} type="button" title={`${label} (${shortcut})`} aria-pressed={tool === mode} disabled={mode !== 'move' && !selectedImportedLayer?.object.visible} onClick={() => setTool(mode)} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 12, borderRadius: 6, border: '1px solid #ffffff14', background: tool === mode ? '#394760' : '#20232a', color: mode === 'move' || selectedImportedLayer?.object.visible ? '#e5e7eb' : '#626976', cursor: 'pointer' }}>{label} <span style={{ color: '#8792a5' }}>({shortcut})</span></button>
           ))}
@@ -828,14 +922,34 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             <label htmlFor="brush-size" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#aab2c0', marginBottom: 10 }}>Brush Size <span>{brushSize}px</span></label>
             <input id="brush-size" type="range" min={10} max={150} step={1} value={brushSize} onChange={event => setBrushSize(Number(event.currentTarget.value))} style={{ width: '100%', accentColor: '#8b9fc7' }} />
           </div>}
-        </nav>
-        <div ref={hostRef} style={{ flex: 1, minWidth: 0, overflow: 'hidden' }} />
-        <aside style={{ width: 240, flexShrink: 0, padding: '20px 10px', borderLeft: '1px solid #ffffff0a', background: '#17191e', overflowY: 'auto' }}>
-          <div role="tablist" aria-label="Inspector" style={{ display: 'flex', gap: 4, margin: '0 8px 18px', padding: 3, background: '#101216', borderRadius: 6 }}>
-            <button type="button" role="tab" aria-selected={inspectorTab === 'layers'} onClick={() => setInspectorTab('layers')} style={{ flex: 1, padding: 7, fontSize: 11, borderRadius: 4, background: inspectorTab === 'layers' ? '#293244' : 'transparent', color: '#c4cede', cursor: 'pointer' }}>Layers</button>
-            <button type="button" role="tab" aria-selected={inspectorTab === 'style'} onClick={() => setInspectorTab('style')} style={{ flex: 1, padding: 7, fontSize: 11, borderRadius: 4, background: inspectorTab === 'style' ? '#293244' : 'transparent', color: '#c4cede', cursor: 'pointer' }}>AristoColors Profile</button>
+          <HarmonizationDock onPrepare={prepareHarmonization} onStart={() => setCurrentStep('harmonize')} />
+          <div style={{ marginTop: 'auto', display: 'grid', gap: 8, paddingTop: 16 }}>
+            <button type="button" aria-pressed={viewMode === 'actual'} title="Toggle fitted view and 100% pixel view" onClick={() => {
+              const next = viewModeRef.current === 'fit' ? 'actual' : 'fit';
+              viewModeRef.current = next;
+              setViewMode(next);
+              fitViewRef.current?.();
+            }} style={{ padding: '8px 6px', borderRadius: 5, border: '1px solid #ffffff12', background: '#ffffff04', color: '#b7c7db', fontSize: 11, cursor: 'pointer' }}>{viewMode === 'fit' ? 'Fit to Screen · Switch to 100%' : '100% · Switch to Fit'}</button>
+            <button type="button" disabled={!storageReady || resetting} onClick={() => void resetCanvas()} style={{ padding: 8, borderRadius: 5, background: 'transparent', color: '#929fb2', fontSize: 11, cursor: 'pointer' }}>{resetting ? 'Resetting…' : '↺ Reset Canvas'}</button>
           </div>
-          {inspectorTab === 'style' ? <AristoColorsProfilePanel key={selectedLayerId ?? 'scene'} getSample={getTelemetrySample} label={selectedLayerId ? `Layer · ${layers.find(layer => layer.id === selectedLayerId)?.name ?? 'Selected image'}` : 'Scene · Visible composition'} /> : <>
+        </nav>
+        <div className="flex-1 h-full min-h-0 relative flex items-center justify-center px-2 py-2" style={{ flex: 1, minWidth: 0, minHeight: 0, padding: 8, overflow: 'hidden' }}>
+          <div ref={hostRef} className="max-h-[calc(100vh-68px)]" style={{ width: '100%', height: '100%', maxHeight: 'calc(100dvh - 68px)', minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }} />
+        </div>
+        <aside className="overflow-y-auto max-h-[calc(100vh-100px)]" style={{ width: 240, flexShrink: 0, padding: '12px 10px', maxHeight: 'calc(100dvh - 100px)', borderLeft: '1px solid #ffffff0a', background: '#17191e', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <div role="tablist" aria-label="Inspector" style={{ display: 'flex', flexShrink: 0, gap: 2, marginBottom: 12, padding: 3, background: '#101216', borderRadius: 6 }}>
+            {([['layers', 'Layers'], ['transform', 'Transform'], ['style', 'AristoColors']] as const).map(([tab, label]) =>
+              <button key={tab} type="button" role="tab" aria-selected={inspectorTab === tab} disabled={tab === 'transform' && !selectedLayer} onClick={() => setInspectorTab(tab)} style={{ flex: 1, minWidth: 0, padding: '7px 3px', fontSize: 11, borderRadius: 4, background: inspectorTab === tab ? '#293244' : 'transparent', color: tab === 'transform' && !selectedLayer ? '#626976' : '#c4cede', cursor: tab === 'transform' && !selectedLayer ? 'default' : 'pointer' }}>{label}</button>)}
+          </div>
+          <div role="tabpanel" aria-label={inspectorTab === 'style' ? 'AristoColors' : inspectorTab === 'transform' ? 'Transform' : 'Layers'} style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+          {inspectorTab === 'style' ? <AristoColorsProfilePanel key={selectedLayerId ?? 'scene'} getSample={getTelemetrySample} label={selectedLayerId ? `Layer · ${layers.find(layer => layer.id === selectedLayerId)?.name ?? 'Selected image'}` : 'Scene · Visible composition'} /> : inspectorTab === 'transform' ? <>
+          {selectedLayer && <ArrangeInspector object={selectedLayer.object} isBase={selectedLayer.isBase}
+            canUp={layers.indexOf(selectedLayer) < layers.length - 1} canDown={layers.indexOf(selectedLayer) > 1}
+            onStack={arrangeSelected} onAlign={alignSelected} onRotate={rotateSelected}
+            onFlip={axis => editSelected(object => object.set(axis === 'x' ? 'flipX' : 'flipY', axis === 'x' ? !object.flipX : !object.flipY))}
+            onCrop={crop => editSelected(object => applyLayerCrop(object, crop))} />}
+          {!selectedLayer && <p style={{ padding: 8, fontSize: 12, color: '#8796ac' }}>Select a layer to transform it.</p>}
+          </> : <>
           <h2 style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.6, color: '#b0b6c2', padding: '0 8px' }}>LAYERS</h2>
           <p style={{ fontSize: 11, color: '#707887', margin: '6px 8px 18px' }}>{layers.length} {layers.length === 1 ? 'layer' : 'layers'}</p>
           {[...layers].reverse().map(layer => (
@@ -864,11 +978,6 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             </button>}
             </div>
           ))}
-          {selectedLayer && <ArrangeInspector object={selectedLayer.object} isBase={selectedLayer.isBase}
-            canUp={layers.indexOf(selectedLayer) < layers.length - 1} canDown={layers.indexOf(selectedLayer) > 1}
-            onStack={arrangeSelected} onAlign={alignSelected} onRotate={rotateSelected}
-            onFlip={axis => editSelected(object => object.set(axis === 'x' ? 'flipX' : 'flipY', axis === 'x' ? !object.flipX : !object.flipY))}
-            onCrop={crop => editSelected(object => applyLayerCrop(object, crop))} />}
           {selectedImportedLayer && <section aria-label="Layer appearance" style={{ margin: '20px 8px 0', paddingTop: 18, borderTop: '1px solid #ffffff0a' }}>
             <label htmlFor="layer-opacity" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#aab2c0', marginBottom: 10 }}>
               Opacity <span>{Math.round(selectedImportedLayer.object.opacity * 100)}%</span>
@@ -899,9 +1008,9 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             {(cutoutNotice || cutoutProgress) && <p role="status" aria-live="polite" style={{ fontSize: 11, lineHeight: 1.6, color: '#aab8ce', marginTop: 10 }}>{cutoutNotice || cutoutProgress}</p>}
           </section>}
           </>}
+          </div>
         </aside>
       </div>
-      <HarmonizationDock onPrepare={prepareHarmonization} />
     </main>
   );
 }
