@@ -25,7 +25,7 @@ export const GenerationDock: React.FC = () => {
     fontSize: '12px',
     padding: '0 8px',
     outline: 'none',
-    cursor: 'pointer',
+    cursor: 'not-allowed',
     width: '100%',
   };
 
@@ -63,6 +63,8 @@ export const GenerationDock: React.FC = () => {
           </span>
         </div>
         <textarea
+          disabled
+          title="Generation pipeline is not connected"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Describe lighting, atmosphere, material integration, and seam treatment..."
@@ -95,6 +97,8 @@ export const GenerationDock: React.FC = () => {
         <div style={{ gridColumn: '1 / -1' }}>
           <label style={labelStyle}>Mode</label>
           <select
+            disabled
+            title="Generation pipeline is not connected"
             value={mode}
             onChange={(e) => setMode(e.target.value)}
             style={selectStyle}
@@ -108,6 +112,8 @@ export const GenerationDock: React.FC = () => {
         <div>
           <label style={labelStyle}>Quality</label>
           <select
+            disabled
+            title="Generation pipeline is not connected"
             value={quality}
             onChange={(e) => setQuality(e.target.value)}
             style={selectStyle}
@@ -121,6 +127,8 @@ export const GenerationDock: React.FC = () => {
         <div>
           <label style={labelStyle}>Output</label>
           <select
+            disabled
+            title="Generation pipeline is not connected"
             value={outputRes}
             onChange={(e) => setOutputRes(e.target.value)}
             style={selectStyle}
@@ -205,7 +213,7 @@ export const GenerationDock: React.FC = () => {
               fontFamily: 'var(--font-mono)',
             }}
           >
-            Ready to harmonize
+            Pipeline not connected
           </span>
         </div>
       </div>

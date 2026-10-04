@@ -1,10 +1,11 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
 import { getProjectById } from '@/components/projects/mock-projects';
-import { StudioShell } from '@/components/studio/studio-shell';
+import { StepOneStudio } from '@/components/studio/step-one-studio';
 
 interface ProjectStudioPageProps {
-  params: Promise<{ id: string }> | { id: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ localImport?: string }>;
 }
 
 export async function generateMetadata({ params }: ProjectStudioPageProps) {
@@ -21,8 +22,9 @@ export async function generateMetadata({ params }: ProjectStudioPageProps) {
   };
 }
 
-export default async function ProjectStudioPage({ params }: ProjectStudioPageProps) {
+export default async function ProjectStudioPage({ params, searchParams }: ProjectStudioPageProps) {
   const resolvedParams = await params;
+  const { localImport } = await searchParams;
   const project = getProjectById(resolvedParams.id);
 
   if (!project) {
@@ -30,7 +32,9 @@ export default async function ProjectStudioPage({ params }: ProjectStudioPagePro
   }
 
   return (
-    <StudioShell
+    <StepOneStudio
+      key={localImport || project.id}
+      localImportToken={localImport}
       projectId={project.id}
       projectTitle={project.title}
       initialArtworkUrl={project.imageUrl}

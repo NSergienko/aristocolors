@@ -70,6 +70,7 @@ export const MOCK_PROJECTS: readonly ProjectCardData[] = [
     resolution: '3840 × 2160',
     category: 'splash',
     profileName: 'Emerald Mist',
+    imageUrl: '/artwork/forgotten-temple.png',
     gridOverlay: false,
     gradientBackground: `
       radial-gradient(circle at 30% 25%, rgba(0, 229, 153, 0.35) 0%, transparent 45%),

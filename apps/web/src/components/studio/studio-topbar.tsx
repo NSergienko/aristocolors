@@ -18,7 +18,7 @@ export interface StudioTopbarProps {
 
 export const StudioTopbar: React.FC<StudioTopbarProps> = ({
   projectTitle = 'Obsidian Product Launch',
-  projectStatus = 'Saved',
+  projectStatus = 'Local session',
   zoomLevel = '100%',
   onZoomChange,
   canUndo = false,
@@ -209,13 +209,16 @@ export const StudioTopbar: React.FC<StudioTopbarProps> = ({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
           onChange={(e) => {
-            const file = e.target.files?.[0];
+            const file = e.currentTarget.files?.[0];
+            e.currentTarget.value = '';
             if (file) {
+              if (process.env.NODE_ENV !== 'production') {
+                console.debug('[AddImage] file selected', { name: file.name, type: file.type, size: file.size });
+              }
               onAddImage?.(file);
             }
-            e.target.value = '';
           }}
           style={{ display: 'none' }}
         />
@@ -313,7 +316,7 @@ export const StudioTopbar: React.FC<StudioTopbarProps> = ({
         <button
           type="button"
           onClick={onExport}
-          title="Export Canvas as PNG (aristocolors-obsidian-product.png)"
+          title="Export Canvas as PNG"
           style={{
             display: 'inline-flex',
             alignItems: 'center',

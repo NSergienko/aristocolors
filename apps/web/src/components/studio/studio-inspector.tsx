@@ -256,10 +256,11 @@ export const StudioInspector: React.FC<StudioInspectorProps> = ({
 
             <button
               type="button"
+              disabled={selection?.isBase}
               onClick={() => onDeleteLayer?.(selectedLayerId)}
-              title="Delete Selected Layer"
+              title={selection?.isBase ? 'Base artwork is protected' : 'Delete Selected Layer'}
               style={{
-                ...compactBtnStyle(false),
+                ...compactBtnStyle(Boolean(selection?.isBase)),
                 color: '#f87171',
                 borderColor: 'rgba(239, 68, 68, 0.25)',
               }}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StudioTopbar } from './studio-topbar';
 import { StudioToolstrip, type StudioTool } from './studio-toolstrip';
 import { StudioInspector } from './studio-inspector';
@@ -16,12 +16,32 @@ export interface StudioShellProps {
   projectId?: string;
   projectTitle?: string;
   initialArtworkUrl?: string;
+  localImportToken?: string;
 }
 
 export const StudioShell: React.FC<StudioShellProps> = ({
   projectTitle = 'Obsidian Product Launch',
   initialArtworkUrl,
+  localImportToken,
 }) => {
+  const [localArtwork, setLocalArtwork] = useState<{ dataUrl: string; name: string } | null>(null);
+  const [importError, setImportError] = useState('');
+  useEffect(() => {
+    if (!localImportToken) return;
+    try {
+      const raw = sessionStorage.getItem(`aristocolors:local-import:${localImportToken}`);
+      if (!raw) throw new Error('Missing local image');
+      const artwork = JSON.parse(raw);
+      if (typeof artwork.name !== 'string' || typeof artwork.dataUrl !== 'string' ||
+          !/^data:image\/(png|jpeg|webp);base64,/.test(artwork.dataUrl)) {
+        throw new Error('Invalid local image');
+      }
+      setLocalArtwork(artwork);
+    } catch {
+      setImportError('The local image is unavailable. Return to Projects and select it again.');
+    }
+  }, [localImportToken]);
+  const artworkTitle = localImportToken ? localArtwork?.name || 'New Project' : projectTitle;
   const canvasRef = useRef<CanvasWorkspaceHandle | null>(null);
   const [selection, setSelection] = useState<CanvasSelectionInfo | null>(null);
   const [layers, setLayers] = useState<CanvasLayerItem[]>([]);
@@ -32,15 +52,50 @@ export const StudioShell: React.FC<StudioShellProps> = ({
 
   // Single unified image import pipeline for Add Image button
   const handleAddImage = (file: File) => {
-    canvasRef.current?.importImageFile(file);
+    const workspace = canvasRef.current;
+    if (!workspace) {
+      setImportError('The canvas is not ready to import an image.');
+      if (process.env.NODE_ENV !== 'production') console.error('[AddImage] Canvas handle is unavailable');
+      return;
+    }
+    setImportError('');
+    workspace.importImageFile(file);
   };
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement &&
+          (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      const key = event.key.toLowerCase();
+      if (event.ctrlKey || event.metaKey) {
+        if (key === 'z') {
+          event.preventDefault();
+          if (event.shiftKey) canvasRef.current?.redo();
+          else canvasRef.current?.undo();
+        } else if (key === 'y') {
+          event.preventDefault();
+          canvasRef.current?.redo();
+        }
+        return;
+      }
+      if (event.altKey) return;
+      const tool = ({ v: 'select', m: 'move', t: 'transform' } as const)[key as 'v' | 'm' | 't'];
+      if (tool) {
+        event.preventDefault();
+        setActiveTool(tool);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
 
   const handleMainDrop = (e: React.DragEvent<HTMLElement>) => {
     e.preventDefault();
     e.stopPropagation();
     const files = Array.from(e.dataTransfer.files);
     for (const file of files) {
-      if (['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      if (['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name)) {
         canvasRef.current?.importImageFile(file);
         break;
       }
@@ -61,7 +116,7 @@ export const StudioShell: React.FC<StudioShellProps> = ({
     >
       {/* 1. TOP: Studio Topbar (50px) */}
       <StudioTopbar
-        projectTitle={projectTitle}
+        projectTitle={artworkTitle}
         zoomLevel={zoomLevel}
         onZoomChange={setZoomLevel}
         canUndo={canUndo}
@@ -113,10 +168,15 @@ export const StudioShell: React.FC<StudioShellProps> = ({
             position: 'relative',
           }}
         >
-          <CanvasWorkspace
+          {importError && (!localImportToken || localArtwork) && (
+            <p role="alert" style={{ position: 'absolute', top: 12, left: 12 }}>{importError}</p>
+          )}
+          {localImportToken && !localArtwork ? (
+            <p role="status">{importError || 'Loading local image…'}</p>
+          ) : <CanvasWorkspace
             ref={canvasRef}
-            initialArtworkUrl={initialArtworkUrl}
-            initialArtworkName={projectTitle}
+            initialArtworkUrl={localImportToken ? localArtwork?.dataUrl : initialArtworkUrl}
+            initialArtworkName={artworkTitle}
             onSelectionChange={setSelection}
             onLayersChange={setLayers}
             activeTool={activeTool}
@@ -125,7 +185,7 @@ export const StudioShell: React.FC<StudioShellProps> = ({
               setCanUndo(undoable);
               setCanRedo(redoable);
             }}
-          />
+          />}
         </main>
 
         {/* Right: Inspector (320px) */}

@@ -13,7 +13,7 @@ import {
   type ViewDensity,
 } from '@/components/projects/projects-toolbar';
 import { ProjectCard } from '@/components/projects/project-card';
-import { NewProjectCard } from '@/components/projects/new-project-card';
+import { CreateProjectCard } from '@/components/projects/create-project-card';
 import { MOCK_PROJECTS } from '@/components/projects/mock-projects';
 
 export default function ProjectsPage() {
@@ -119,13 +119,7 @@ export default function ProjectsPage() {
         }}
       >
         {/* New Project Import Card */}
-        <NewProjectCard
-          onCreate={handleCreateNew}
-          onDropFiles={(files) => {
-            console.log('Importing files:', files);
-            handleCreateNew();
-          }}
-        />
+        <CreateProjectCard />
 
         {/* Existing Project Cards */}
         {filteredProjects.map((project) => (

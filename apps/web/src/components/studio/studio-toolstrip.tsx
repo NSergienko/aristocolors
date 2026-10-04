@@ -178,13 +178,13 @@ const FUNCTIONAL_TOOLS: readonly StudioTool[] = [
   'select',
   'move',
   'transform',
-  'brush',
 ];
 
 const DISABLED_TOOLTIPS: Partial<Record<StudioTool, string>> = {
-  mask: 'Mask (Phase 4 Pipeline Required)',
-  eraser: 'Eraser (Phase 4 Pipeline Required)',
-  crop: 'Crop (Phase 4 Feature)',
+  mask: 'Mask editing is not implemented (remaining Phase 3 work)',
+  brush: 'Brush editing is not implemented',
+  eraser: 'Eraser editing is not implemented',
+  crop: 'Crop editing is not implemented',
 };
 
 export const StudioToolstrip: React.FC<StudioToolstripProps> = ({

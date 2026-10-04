@@ -316,6 +316,30 @@ export class CanvasProject {
     return this._state.manifest;
   }
 
+  removeLayer(layerId: string): void {
+    this.mutate((manifest) => {
+      const index = manifest.layers.findIndex((layer) => layer.id === layerId);
+      if (index === -1) throw new Error(`Layer with ID "${layerId}" not found`);
+      const layers = normalizeZIndex(manifest.layers.filter((layer) => layer.id !== layerId));
+      return {
+        manifest: {
+          ...manifest,
+          layers,
+          version: manifest.version + 1,
+          updatedAt: new Date().toISOString(),
+        },
+        selectedLayerId: this.selectedLayerId === layerId
+          ? (layers[Math.min(index, layers.length - 1)]?.id ?? null)
+          : this.selectedLayerId,
+      };
+    });
+  }
+
+  /** Establish the loaded artwork as the starting state, not an undoable edit. */
+  clearHistory(): void {
+    this._state = { ...this._state, undoHistory: [], redoHistory: [] };
+  }
+
   selectLayer(layerId: string | null): string | null {
     if (layerId !== null && !this._state.manifest.layers.some((l) => l.id === layerId)) {
       throw new Error(`Cannot select non-existent layer ID: "${layerId}"`);
