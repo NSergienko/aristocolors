@@ -4,15 +4,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Canvas, FabricImage, util } from 'fabric';
 import { loadStudioManifest, saveStudioManifest, pixelsToPng, type StoredStudioManifest } from './studio-project-storage';
 import { removeSolidBackground } from './remove-solid-background';
-import { StyleDnaPanel } from './style-dna-panel';
+import { AristoColorsProfilePanel } from './aristocolors-profile-panel';
+import { applyLayerCrop, emptyCrop, type LayerCrop } from './studio-object-transform';
+import { ArrangeInspector, type StackAction, type AlignAction } from './arrange-inspector';
+import { HarmonizationDock, type HarmonizationSettings } from './harmonization-dock';
 
-type LayerImage = FabricImage & { studioLayerId: string };
+type LayerImage = FabricImage & { studioLayerId: string; studioCrop?: LayerCrop };
 type StudioLayer = { id: string; name: string; object: LayerImage; isBase: boolean; originalSource: HTMLImageElement };
 type Tool = 'move' | 'eraser' | 'brush';
 type Snapshot = {
   selectedId: string | null;
   layers: { layer: StudioLayer; pixels: ReturnType<FabricImage['getElement']>; mask?: HTMLCanvasElement;
-    values: Pick<FabricImage, 'left' | 'top' | 'scaleX' | 'scaleY' | 'angle' | 'opacity' | 'visible' | 'globalCompositeOperation'> }[];
+    crop: LayerCrop;
+    values: Pick<FabricImage, 'left' | 'top' | 'scaleX' | 'scaleY' | 'angle' | 'opacity' | 'visible' | 'globalCompositeOperation' | 'flipX' | 'flipY'> }[];
 };
 
 function copyPixels(source: HTMLCanvasElement): HTMLCanvasElement {
@@ -78,10 +82,10 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       const source = object.getElement();
       const mask = masksRef.current.get(layer.id);
       return { layer, pixels: source instanceof HTMLCanvasElement ? copyPixels(source) : source,
-        mask: mask ? copyPixels(mask) : undefined,
+        mask: mask ? copyPixels(mask) : undefined, crop: { ...(object.studioCrop ?? emptyCrop()) },
         values: { left: object.left, top: object.top, scaleX: object.scaleX, scaleY: object.scaleY,
           angle: object.angle, opacity: object.opacity, visible: object.visible,
-          globalCompositeOperation: object.globalCompositeOperation } };
+          globalCompositeOperation: object.globalCompositeOperation, flipX: object.flipX, flipY: object.flipY } };
     }) };
   }
 
@@ -104,6 +108,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       const object = entry.layer.object;
       object.setElement(entry.pixels instanceof HTMLCanvasElement ? copyPixels(entry.pixels) : entry.pixels);
       object.set(entry.values);
+      applyLayerCrop(object, entry.crop);
       object.setCoords();
       if (entry.mask) masksRef.current.set(entry.layer.id, copyPixels(entry.mask));
       canvas.add(object);
@@ -147,7 +152,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       scaleY: scale,
       hasControls: true,
     }) as LayerImage;
-    object.setControlsVisibility({ mt: false, mb: false, ml: false, mr: false, mtr: false });
+    object.setControlsVisibility({ mt: false, mb: false, ml: false, mr: false, mtr: true });
     object.studioLayerId = id;
     if (!isBase) recordHistory();
     canvas.add(object);
@@ -220,7 +225,8 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             if (canvasRef.current !== canvas) return;
             const object = new FabricImage(image, { ...entry.values, hasControls: true }) as LayerImage;
             object.studioLayerId = entry.id;
-            object.setControlsVisibility({ mt: false, mb: false, ml: false, mr: false, mtr: false });
+            object.setControlsVisibility({ mt: false, mb: false, ml: false, mr: false, mtr: true });
+            applyLayerCrop(object, entry.crop);
             restoredLayers.push({ id: entry.id, name: entry.name, isBase: entry.isBase, object, originalSource });
             if (entry.maskSource) {
               const mask = await decodeBlob(entry.maskSource);
@@ -298,9 +304,11 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
           const maskSource = mask ? pixelsToPng(mask, mask.width, mask.height) : undefined;
           const values = { left: object.left, top: object.top, scaleX: object.scaleX, scaleY: object.scaleY,
             angle: object.angle, opacity: object.opacity, visible: object.visible,
+            flipX: object.flipX, flipY: object.flipY,
             globalCompositeOperation: object.globalCompositeOperation as StoredStudioManifest['layers'][number]['values']['globalCompositeOperation'] };
           return { id: layer.id, name: layer.name, isBase: layer.isBase, zIndex,
-            imageSource: await imageSource, originalSource: await originalSource, maskSource: await maskSource, values };
+            imageSource: await imageSource, originalSource: await originalSource, maskSource: await maskSource, values,
+            crop: { ...(object.studioCrop ?? emptyCrop()) } };
         }));
         if (generation !== saveGenerationRef.current || canvasRef.current !== canvas) return;
         await saveStudioManifest(storageKey, { version: 1, title, selectedLayerId,
@@ -414,6 +422,56 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   }
 
   const selectedImportedLayer = layers.find(layer => layer.id === selectedLayerId && !layer.isBase);
+  const selectedLayer = layers.find(layer => layer.id === selectedLayerId);
+
+  function editSelected(change: (object: LayerImage, canvas: Canvas) => void) {
+    const canvas = canvasRef.current;
+    if (!canvas || !selectedLayer) return;
+    recordHistory();
+    setTool('move');
+    change(selectedLayer.object, canvas);
+    selectedLayer.object.setCoords();
+    selectedLayer.object.set('dirty', true);
+    setLayers(current => [...current]);
+    canvas.requestRenderAll();
+  }
+
+  function arrangeSelected(action: StackAction) {
+    const canvas = canvasRef.current;
+    if (!canvas || !selectedLayer || selectedLayer.isBase) return;
+    const stack = canvas.getObjects();
+    const index = stack.indexOf(selectedLayer.object);
+    const target = action === 'front' ? stack.length - 1 : action === 'back' ? 1 : action === 'forward' ? index + 1 : index - 1;
+    if (target < 1 || target >= stack.length || target === index) return;
+    recordHistory();
+    canvas.moveObjectTo(selectedLayer.object, target);
+    const base = layers.find(layer => layer.isBase);
+    if (base) canvas.moveObjectTo(base.object, 0);
+    const order = canvas.getObjects();
+    setLayers(current => [...current].sort((a, b) => order.indexOf(a.object) - order.indexOf(b.object)));
+    canvas.requestRenderAll();
+  }
+
+  function alignSelected(action: AlignAction) {
+    editSelected((object, canvas) => {
+      const bounds = object.getBoundingRect();
+      if (action === 'left' || action === 'right' || action === 'center-x') {
+        const target = action === 'left' ? 0 : action === 'right' ? canvas.getWidth() - bounds.width : (canvas.getWidth() - bounds.width) / 2;
+        object.set('left', object.left + target - bounds.left);
+      } else {
+        const target = action === 'top' ? 0 : action === 'bottom' ? canvas.getHeight() - bounds.height : (canvas.getHeight() - bounds.height) / 2;
+        object.set('top', object.top + target - bounds.top);
+      }
+    });
+  }
+
+  function rotateSelected(angle: number) {
+    editSelected(object => {
+      const center = object.getCenterPoint();
+      object.set('angle', ((angle % 360) + 360) % 360);
+      object.setPositionByOrigin(center, 'center', 'center');
+    });
+  }
 
   useEffect(() => {
     setTool('move');
@@ -426,9 +484,11 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     const after = () => {
       if (transformStartRef.current) recordHistory(transformStartRef.current);
       transformStartRef.current = null;
+      setLayers(current => [...current]);
       unsavedRef.current = true;
       requestSave(current => current + 1);
     };
+    const liveRotation = () => refreshHistory(current => current + 1);
     const overlay = () => {
       if (exportingRef.current) return;
       const context = canvas.getContext();
@@ -440,16 +500,25 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         context.transform(...matrix);
         context.globalCompositeOperation = 'source-over';
         context.globalAlpha = 0.45;
+        const crop = layer.object.studioCrop ?? emptyCrop();
+        context.beginPath();
+        context.rect(-layer.object.width / 2 + layer.object.width * crop.left / 100,
+          -layer.object.height / 2 + layer.object.height * crop.top / 100,
+          layer.object.width * (100 - crop.left - crop.right) / 100,
+          layer.object.height * (100 - crop.top - crop.bottom) / 100);
+        context.clip();
         context.drawImage(mask, -layer.object.width / 2, -layer.object.height / 2);
         context.restore();
       }
     };
     canvas.on('before:transform', before);
     canvas.on('object:modified', after);
+    canvas.on('object:rotating', liveRotation);
     canvas.on('after:render', overlay);
     return () => {
       canvas.off('before:transform', before);
       canvas.off('object:modified', after);
+      canvas.off('object:rotating', liveRotation);
       canvas.off('after:render', overlay);
     };
   }, [layers, selectedLayerId]);
@@ -675,7 +744,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     let width: number;
     let height: number;
     if (layer) {
-      if (!layer.object.visible) return null;
+      // Inspect the selected image's own pixels, even when that layer is hidden.
       source = layer.object.getElement();
       width = layer.object.width;
       height = layer.object.height;
@@ -704,8 +773,35 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     return sample;
   }
 
+  async function prepareHarmonization(settings: HarmonizationSettings) {
+    if (!canvasRef.current || !layers.length) throw new Error('Wait for the project artwork to load.');
+    const state = captureState();
+    const encodeBlob = async (blob: Blob) => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Unable to encode layer source.'));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    const payload = { version: 1, projectId: localImportToken ?? projectId, title, settings,
+      backgroundLayerId: layers.find(layer => layer.isBase)?.id,
+      layers: await Promise.all(state.layers.map(async (entry, zIndex) => ({
+        id: entry.layer.id, name: entry.layer.name, zIndex, values: entry.values, crop: entry.crop,
+        src: await encodeBlob(await pixelsToPng(entry.pixels, entry.layer.object.width, entry.layer.object.height)),
+        mask: entry.mask ? await encodeBlob(await pixelsToPng(entry.mask, entry.mask.width, entry.mask.height)) : undefined,
+      }))),
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${title.replace(/[<>:"/\\|?*]/g, '-').trim() || 'project'}-harmonization-request.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   return (
-    <main style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: '#141619', color: '#e5e7eb' }}>
+    <main style={{ height: '100dvh', paddingBottom: 210, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: '#141619', color: '#e5e7eb' }}>
       <header style={{ height: 64, flexShrink: 0, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #303238' }}>
         <h1 style={{ fontSize: 16, fontWeight: 600 }}>{title}</h1>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -737,9 +833,9 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         <aside style={{ width: 240, flexShrink: 0, padding: '20px 10px', borderLeft: '1px solid #ffffff0a', background: '#17191e', overflowY: 'auto' }}>
           <div role="tablist" aria-label="Inspector" style={{ display: 'flex', gap: 4, margin: '0 8px 18px', padding: 3, background: '#101216', borderRadius: 6 }}>
             <button type="button" role="tab" aria-selected={inspectorTab === 'layers'} onClick={() => setInspectorTab('layers')} style={{ flex: 1, padding: 7, fontSize: 11, borderRadius: 4, background: inspectorTab === 'layers' ? '#293244' : 'transparent', color: '#c4cede', cursor: 'pointer' }}>Layers</button>
-            <button type="button" role="tab" aria-selected={inspectorTab === 'style'} onClick={() => setInspectorTab('style')} style={{ flex: 1, padding: 7, fontSize: 11, borderRadius: 4, background: inspectorTab === 'style' ? '#293244' : 'transparent', color: '#c4cede', cursor: 'pointer' }}>Style DNA</button>
+            <button type="button" role="tab" aria-selected={inspectorTab === 'style'} onClick={() => setInspectorTab('style')} style={{ flex: 1, padding: 7, fontSize: 11, borderRadius: 4, background: inspectorTab === 'style' ? '#293244' : 'transparent', color: '#c4cede', cursor: 'pointer' }}>AristoColors Profile</button>
           </div>
-          {inspectorTab === 'style' ? <StyleDnaPanel getSample={getTelemetrySample} label={layers.find(layer => layer.id === selectedLayerId)?.name ?? 'Visible composition'} /> : <>
+          {inspectorTab === 'style' ? <AristoColorsProfilePanel key={selectedLayerId ?? 'scene'} getSample={getTelemetrySample} label={selectedLayerId ? `Layer · ${layers.find(layer => layer.id === selectedLayerId)?.name ?? 'Selected image'}` : 'Scene · Visible composition'} /> : <>
           <h2 style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.6, color: '#b0b6c2', padding: '0 8px' }}>LAYERS</h2>
           <p style={{ fontSize: 11, color: '#707887', margin: '6px 8px 18px' }}>{layers.length} {layers.length === 1 ? 'layer' : 'layers'}</p>
           {[...layers].reverse().map(layer => (
@@ -768,6 +864,11 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             </button>}
             </div>
           ))}
+          {selectedLayer && <ArrangeInspector object={selectedLayer.object} isBase={selectedLayer.isBase}
+            canUp={layers.indexOf(selectedLayer) < layers.length - 1} canDown={layers.indexOf(selectedLayer) > 1}
+            onStack={arrangeSelected} onAlign={alignSelected} onRotate={rotateSelected}
+            onFlip={axis => editSelected(object => object.set(axis === 'x' ? 'flipX' : 'flipY', axis === 'x' ? !object.flipX : !object.flipY))}
+            onCrop={crop => editSelected(object => applyLayerCrop(object, crop))} />}
           {selectedImportedLayer && <section aria-label="Layer appearance" style={{ margin: '20px 8px 0', paddingTop: 18, borderTop: '1px solid #ffffff0a' }}>
             <label htmlFor="layer-opacity" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#aab2c0', marginBottom: 10 }}>
               Opacity <span>{Math.round(selectedImportedLayer.object.opacity * 100)}%</span>
@@ -800,6 +901,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
           </>}
         </aside>
       </div>
+      <HarmonizationDock onPrepare={prepareHarmonization} />
     </main>
   );
 }

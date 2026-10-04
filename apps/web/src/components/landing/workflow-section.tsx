@@ -21,7 +21,7 @@ const STAGES: readonly Stage[] = [
   {
     number: '02',
     title: 'Harmonize',
-    tagline: 'Atmospheric Style DNA Match',
+    tagline: 'Atmospheric AristoColors Profile Match',
     description: 'The engine extracts spherical harmonics light direction, Kelvin temperature and micrograin to synthesize contact shadows and seam blending.',
     moodHighlight: '#FF9A3D',
     imageUrl: '/artwork/pipeline-harmonize.jpg',

@@ -183,7 +183,7 @@ export const LandingHero: React.FC = () => {
                 border: '1px solid var(--border-subtle)',
               }}
             >
-              Anatomy of Soul — Harmonized Style DNA
+              Anatomy of Soul — Harmonized AristoColors Profile
             </div>
           </div>
 

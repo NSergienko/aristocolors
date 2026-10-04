@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 export const metadata = {
   title: 'AristoColors Studio',
-  description: 'AI-Powered Photo-Bashing Web Application & Style DNA Engine',
+  description: 'AI-Powered Photo-Bashing Web Application & AristoColors Profile Engine',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

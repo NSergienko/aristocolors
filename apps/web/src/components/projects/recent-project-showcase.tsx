@@ -106,7 +106,7 @@ export const RecentProjectShowcase: React.FC<RecentProjectShowcaseProps> = ({
               border: '1px solid var(--border-subtle)',
             }}
           >
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Style DNA:</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>AristoColors Profile:</span>
             <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-amber)' }}>
               {profileName}
             </span>

@@ -52,7 +52,7 @@ export const PublicFooter: React.FC = () => {
             </div>
             <span style={{ color: 'var(--border-strong)', fontSize: '13px' }}>•</span>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
-              AI photobashing and Style DNA harmonization for digital artists and studios.
+              AI photobashing and AristoColors Profile harmonization for digital artists and studios.
             </p>
           </div>
 

@@ -1,9 +1,14 @@
 import { z } from 'zod';
+const cropSchema = z.object({ top: z.number().min(0).max(100), bottom: z.number().min(0).max(100),
+  left: z.number().min(0).max(100), right: z.number().min(0).max(100) })
+  .refine(crop => crop.top + crop.bottom <= 100 && crop.left + crop.right <= 100)
+  .default({ top: 0, bottom: 0, left: 0, right: 0 });
 
 const valuesSchema = z.object({
   left: z.number().finite(), top: z.number().finite(), scaleX: z.number().finite(), scaleY: z.number().finite(),
   angle: z.number().finite(), opacity: z.number().min(0).max(1), visible: z.boolean(),
   globalCompositeOperation: z.enum(['source-over', 'multiply', 'screen', 'overlay', 'lighten', 'darken']),
+  flipX: z.boolean().default(false), flipY: z.boolean().default(false),
 });
 const manifestSchema = z.object({
   version: z.literal(1), title: z.string(), selectedLayerId: z.string().nullable(),
@@ -12,6 +17,7 @@ const manifestSchema = z.object({
     id: z.string(), name: z.string(), isBase: z.boolean(), zIndex: z.number().int().nonnegative(),
     imageSource: z.instanceof(Blob), originalSource: z.instanceof(Blob), maskSource: z.instanceof(Blob).optional(),
     values: valuesSchema,
+    crop: cropSchema,
   })).min(1),
 });
 export type StoredStudioManifest = z.infer<typeof manifestSchema>;
@@ -23,6 +29,7 @@ const canonicalSchema = z.object({
     x: z.number().finite(), y: z.number().finite(), scaleX: z.number().finite(), scaleY: z.number().finite(),
     rotation: z.number().finite(), zIndex: z.number().int().nonnegative(), opacity: z.number().min(0).max(1),
     blendMode: valuesSchema.shape.globalCompositeOperation, visible: z.boolean(),
+    flipX: z.boolean().default(false), flipY: z.boolean().default(false), crop: cropSchema,
   })).min(1),
 });
 
@@ -57,9 +64,10 @@ export async function loadStudioManifest(key: string): Promise<StoredStudioManif
         layers: canonical.layers.map(layer => {
           const asset = assets.get(layer.id);
           if (!asset || layer.src !== `indexeddb:${canonical.assetKey}:${layer.id}`) throw new Error('A saved layer source is missing.');
-          return { ...asset, id: layer.id, name: layer.name, isBase: layer.isBase, zIndex: layer.zIndex,
+          return { ...asset, id: layer.id, name: layer.name, isBase: layer.isBase, zIndex: layer.zIndex, crop: layer.crop,
             values: { left: layer.x, top: layer.y, scaleX: layer.scaleX, scaleY: layer.scaleY,
-              angle: layer.rotation, opacity: layer.opacity, globalCompositeOperation: layer.blendMode, visible: layer.visible } };
+              angle: layer.rotation, opacity: layer.opacity, globalCompositeOperation: layer.blendMode, visible: layer.visible,
+              flipX: layer.flipX, flipY: layer.flipY } };
         }),
       };
     }
@@ -97,7 +105,7 @@ export async function saveStudioManifest(key: string, manifest: StoredStudioMani
           src: `indexeddb:${assetKey}:${layer.id}`, x: layer.values.left, y: layer.values.top,
           scaleX: layer.values.scaleX, scaleY: layer.values.scaleY, rotation: layer.values.angle,
           zIndex: layer.zIndex, opacity: layer.values.opacity, blendMode: layer.values.globalCompositeOperation,
-          visible: layer.values.visible })) }));
+          visible: layer.values.visible, flipX: layer.values.flipX, flipY: layer.values.flipY, crop: layer.crop })) }));
     } catch (cause) {
       db.transaction('manifests', 'readwrite').objectStore('manifests').delete(assetKey);
       throw cause;

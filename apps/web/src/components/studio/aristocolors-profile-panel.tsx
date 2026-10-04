@@ -94,7 +94,7 @@ export function analyzeStyle(image: HTMLCanvasElement): Telemetry | null {
     kelvin, confidence: directional ? Math.round(Math.min(0.65, Math.hypot(dx, dy) * contrast * 6) * 100) : 0 };
 }
 
-export function StyleDnaPanel({ getSample, label }: { getSample: () => HTMLCanvasElement | null; label: string }) {
+export function AristoColorsProfilePanel({ getSample, label }: { getSample: () => HTMLCanvasElement | null; label: string }) {
   const [data, setData] = useState<Telemetry | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -102,13 +102,19 @@ export function StyleDnaPanel({ getSample, label }: { getSample: () => HTMLCanva
     catch { setFailed(true); setData(null); }
   }, [getSample]);
   return <section style={{ padding: '8px', color: '#aab2c0', fontSize: 12 }}>
-    <p style={{ marginBottom: 18, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={label}>{label}</p>
+    <h2 style={{ fontSize: 12, fontWeight: 600, color: '#e0e8f5', marginBottom: 8 }}>AristoColors Profile</h2>
+    <p style={{ marginBottom: 18, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: '#8798b2', fontSize: 11 }} title={label}>{label}</p>
     {!data ? <p>{failed ? 'Unable to read artwork pixels.' : 'No visible artwork pixels to analyze.'}</p> : <>
       <h3 style={{ fontSize: 10, letterSpacing: 1.2, marginBottom: 12 }}>DETERMINISTIC PALETTE · CIELAB</h3>
-      {data.palette.map(color => <div key={color.hex + color.lab.join(',')} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-        <span style={{ width: 28, height: 28, borderRadius: 5, background: color.hex, border: '1px solid #ffffff20', flexShrink: 0 }} />
-        <div style={{ flex: 1 }}><div>{color.hex.toUpperCase()}</div><div style={{ fontSize: 9, color: '#7e899b' }}>L* {color.lab[0].toFixed(1)} a* {color.lab[1].toFixed(1)} b* {color.lab[2].toFixed(1)}</div></div>
-        <span style={{ borderRadius: 4, padding: '3px 5px', background: '#ffffff08', fontSize: 10 }}>{color.percentage.toFixed(1)}%</span>
+      {data.palette.map(color => <div key={color.hex + color.lab.join(',')} style={{ display: 'flex', gap: 9, alignItems: 'center', marginBottom: 8, padding: 8, background: '#ffffff03', border: '1px solid #ffffff0a', borderRadius: 8 }}>
+        <span aria-label={`Color ${color.hex}`} style={{ width: 38, height: 38, borderRadius: 6, background: color.hex, border: '1px solid #ffffff70', boxShadow: '0 0 0 2px #0005, inset 0 0 0 1px #ffffff15', flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#e2eaf7', whiteSpace: 'nowrap' }}>{color.hex.toUpperCase()}</span>
+            <span style={{ borderRadius: 4, padding: '3px 4px', background: '#8b9fc71a', border: '1px solid #8b9fc72a', color: '#c5d5ed', fontSize: 10, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{color.percentage.toFixed(1)}%</span>
+          </div>
+          <div style={{ fontSize: 9, color: '#8895a9', lineHeight: 1.5 }}>L* {color.lab[0].toFixed(1)} · a* {color.lab[1].toFixed(1)} · b* {color.lab[2].toFixed(1)}</div>
+        </div>
       </div>)}
       <div style={{ marginTop: 22, padding: 12, background: '#20242c', border: '1px solid #ffffff0a', borderRadius: 8 }}>
         <h3 style={{ fontSize: 10, letterSpacing: 1.1, marginBottom: 12 }}>INFERRED LIGHTING</h3>
