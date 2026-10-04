@@ -19,45 +19,45 @@ export function ArrangeInspector({ object, isBase, canUp, canDown, onStack, onAl
   const angle = ((object.angle % 360) + 360) % 360;
   const crop = object.studioCrop ?? emptyCrop();
   return <section aria-label="Object & Arrange" style={{ margin: '12px 0 0', borderTop: '1px solid #ffffff0a', padding: '10px 0', color: '#aab7ca' }}>
-    <h2 style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1.2, color: '#8e9db2', marginBottom: 12 }}>OBJECT &amp; ARRANGE</h2>
-    <h3 style={{ fontSize: 11, fontWeight: 600, marginBottom: 10 }}>Arrange &amp; Align</h3>
+    <h2 className="!text-xs !font-medium uppercase !tracking-wider !text-zinc-400 !mb-2" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1.2, color: '#8e9db2', marginBottom: 12 }}>OBJECT &amp; ARRANGE</h2>
+    <h3 className="!text-xs !font-medium uppercase !tracking-wider !text-zinc-400 !mb-2" style={{ fontSize: 11, fontWeight: 600, marginBottom: 10 }}>Arrange &amp; Align</h3>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 8 }}>
       {([['front', 'Bring to Front', canUp], ['back', 'Send to Back', canDown],
         ['forward', 'Bring Forward', canUp], ['backward', 'Send Backward', canDown]] as const).map(([action, label, enabled]) =>
-        <button key={action} type="button" title={label} aria-label={label} disabled={isBase || !enabled} onClick={() => onStack(action)} style={{ ...buttonStyle, height: 28, display: 'grid', placeItems: 'center', opacity: isBase || !enabled ? 0.4 : 1 }}>
+        <button className="!rounded-md !py-1.5 !px-2 !text-xs !bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" key={action} type="button" title={label} aria-label={label} disabled={isBase || !enabled} onClick={() => onStack(action)} style={{ ...buttonStyle, height: 28, display: 'grid', placeItems: 'center', opacity: isBase || !enabled ? 0.4 : 1 }}>
           {label}
         </button>)}
     </div>
     {isBase && <p style={{ fontSize: 11, color: '#7d8a9e', marginBottom: 10 }}>Base artwork stays at the bottom.</p>}
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginBottom: 10 }}>
       {([['left', 'Left'], ['center-x', 'Center X'], ['right', 'Right'], ['top', 'Top'], ['center-y', 'Center Y'], ['bottom', 'Bottom']] as const)
-        .map(([action, label]) => <button key={action} type="button" title={`Align ${label} to canvas`} aria-label={`Align ${label} to canvas`} onClick={() => onAlign(action)} style={{ ...buttonStyle, height: 28, display: 'grid', placeItems: 'center' }}>
+        .map(([action, label]) => <button className="!rounded-md !py-1.5 !px-2 !text-xs !bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" key={action} type="button" title={`Align ${label} to canvas`} aria-label={`Align ${label} to canvas`} onClick={() => onAlign(action)} style={{ ...buttonStyle, height: 28, display: 'grid', placeItems: 'center' }}>
           {label}
         </button>)}
     </div>
-    <h3 style={{ fontSize: 11, fontWeight: 600, marginBottom: 10 }}>Orientation</h3>
+    <h3 className="!text-xs !font-medium uppercase !tracking-wider !text-zinc-400 !mb-2" style={{ fontSize: 11, fontWeight: 600, marginBottom: 10 }}>Orientation</h3>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, marginBottom: 12 }}>
-      <button type="button" aria-pressed={object.flipX} onClick={() => onFlip('x')} style={buttonStyle}>Flip Horizontal</button>
-      <button type="button" aria-pressed={object.flipY} onClick={() => onFlip('y')} style={buttonStyle}>Flip Vertical</button>
-      <button type="button" onClick={() => onRotate(angle - 90)} style={buttonStyle}>90° CCW</button>
-      <button type="button" onClick={() => onRotate(angle + 90)} style={buttonStyle}>90° CW</button>
+      <button className="!rounded-md !py-1.5 !px-2 !text-xs !bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-pressed={object.flipX} onClick={() => onFlip('x')} style={buttonStyle}>Flip Horizontal</button>
+      <button className="!rounded-md !py-1.5 !px-2 !text-xs !bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-pressed={object.flipY} onClick={() => onFlip('y')} style={buttonStyle}>Flip Vertical</button>
+      <button className="!rounded-md !py-1.5 !px-2 !text-xs !bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" onClick={() => onRotate(angle - 90)} style={buttonStyle}>90° CCW</button>
+      <button className="!rounded-md !py-1.5 !px-2 !text-xs !bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" onClick={() => onRotate(angle + 90)} style={buttonStyle}>90° CW</button>
     </div>
-    <label htmlFor="object-angle" style={{ display: 'block', fontSize: 11, marginBottom: 6 }}>Rotation · {angle.toFixed(1)}°</label>
-    <input id="object-angle" aria-label="Rotation angle" type="range" min={0} max={360} step={1} value={angle} onChange={event => onRotate(Number(event.currentTarget.value))} style={{ width: '100%', accentColor: '#8b9fc7' }} />
-    <input aria-label="Rotation angle in degrees" type="number" min={0} max={360} step={1} value={Number(angle.toFixed(1))} onChange={event => {
+    <label className="leading-relaxed tracking-normal" htmlFor="object-angle" style={{ display: 'block', fontSize: 11, marginBottom: 6 }}>Rotation · {angle.toFixed(1)}°</label>
+    <input className="!accent-cyan-300/80" id="object-angle" aria-label="Rotation angle" type="range" min={0} max={360} step={1} value={angle} onChange={event => onRotate(Number(event.currentTarget.value))} style={{ width: '100%', accentColor: '#8b9fc7' }} />
+    <input className="!bg-zinc-900 !text-zinc-300 !border-zinc-800 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60" aria-label="Rotation angle in degrees" type="number" min={0} max={360} step={1} value={Number(angle.toFixed(1))} onChange={event => {
       if (event.currentTarget.value !== '' && Number.isFinite(event.currentTarget.valueAsNumber)) onRotate(Math.max(0, Math.min(360, event.currentTarget.valueAsNumber)));
     }} style={{ ...inputStyle, marginTop: 6, marginBottom: 16 }} />
-    <h3 style={{ fontSize: 11, fontWeight: 600, marginBottom: 10 }}>Crop &amp; Inset</h3>
+    <h3 className="!text-xs !font-medium uppercase !tracking-wider !text-zinc-400 !mb-2" style={{ fontSize: 11, fontWeight: 600, marginBottom: 10 }}>Crop &amp; Inset</h3>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       {(['top', 'bottom', 'left', 'right'] as const).map(side => <label key={side} style={{ fontSize: 10 }}>
         {side[0].toUpperCase() + side.slice(1)} Inset · {crop[side]}%
-        <input aria-label={`${side} inset percent`} type="range" min={0} max={100 - crop[side === 'top' ? 'bottom' : side === 'bottom' ? 'top' : side === 'left' ? 'right' : 'left']} step={1} value={crop[side]} onChange={event => {
+        <input className="!accent-cyan-300/80" aria-label={`${side} inset percent`} type="range" min={0} max={100 - crop[side === 'top' ? 'bottom' : side === 'bottom' ? 'top' : side === 'left' ? 'right' : 'left']} step={1} value={crop[side]} onChange={event => {
           if (event.currentTarget.value === '' || !Number.isFinite(event.currentTarget.valueAsNumber)) return;
           const opposite = side === 'top' ? 'bottom' : side === 'bottom' ? 'top' : side === 'left' ? 'right' : 'left';
           onCrop({ ...crop, [side]: Math.max(0, Math.min(100 - crop[opposite], event.currentTarget.valueAsNumber)) });
         }} style={{ ...inputStyle, marginTop: 5 }} />
       </label>)}
     </div>
-    <button type="button" onClick={() => onCrop(emptyCrop())} style={{ ...buttonStyle, width: '100%', marginTop: 10 }}>Reset Crop</button>
+    <button className="!rounded-md !py-1.5 !px-2 !text-xs !bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" onClick={() => onCrop(emptyCrop())} style={{ ...buttonStyle, width: '100%', marginTop: 10 }}>Reset Crop</button>
   </section>;
 }
