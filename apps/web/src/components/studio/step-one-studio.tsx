@@ -9,6 +9,7 @@ import { AristoColorsProfilePanel } from './aristocolors-profile-panel';
 import { applyLayerCrop, emptyCrop, type LayerCrop } from './studio-object-transform';
 import { ArrangeInspector, type StackAction, type AlignAction } from './arrange-inspector';
 import { HarmonizationDock, type HarmonizationSettings } from './harmonization-dock';
+import { CompositionPreviewModal, type CompositionPreview } from './composition-preview-modal';
 
 type LayerImage = FabricImage & { studioLayerId: string; studioCrop?: LayerCrop };
 type StudioLayer = { id: string; name: string; object: LayerImage; isBase: boolean; originalSource: HTMLImageElement };
@@ -59,6 +60,30 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [title, setTitle] = useState(projectTitle);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<CompositionPreview | null>(null);
+  const harmonizationRunRef = useRef<AbortController | null>(null);
+  const harmonizationSettingsRef = useRef<HarmonizationSettings>({ aspectRatio: '16:9', intensity: 80 });
+  const [harmonizationState, setHarmonizationState] = useState<{ busy: boolean; progress: number; stage: string; error: string | null; notice: string | null }>({ busy: false, progress: 0, stage: '', error: null, notice: null });
+
+  useEffect(() => () => { harmonizationRunRef.current?.abort(); harmonizationRunRef.current = null; }, []);
+
+  async function startHarmonization(settings = harmonizationSettingsRef.current) {
+    if (harmonizationRunRef.current) return;
+    const run = new AbortController();
+    harmonizationRunRef.current = run;
+    setCurrentStep('harmonize');
+    setHarmonizationState({ busy: true, progress: 0, stage: 'Analyzing AristoColors...', error: null, notice: null });
+    try {
+      await prepareHarmonization(settings, run.signal, progress => {
+        if (harmonizationRunRef.current === run) setHarmonizationState(current => ({ ...current, progress, stage: 'Preparing composite request...' }));
+      });
+      if (!run.signal.aborted && harmonizationRunRef.current === run) setHarmonizationState({ busy: false, progress: 100, stage: '', error: null, notice: 'Scene request downloaded. Harmonization engine is not connected yet.' });
+    } catch (cause) {
+      if (harmonizationRunRef.current === run) setHarmonizationState({ busy: false, progress: 0, stage: '', error: run.signal.aborted ? 'Preparation cancelled.' : cause instanceof Error ? cause.message : 'Unable to prepare the scene request.', notice: null });
+    } finally {
+      if (harmonizationRunRef.current === run) harmonizationRunRef.current = null;
+    }
+  }
   const [tool, setTool] = useState<Tool>('move');
   const [brushSize, setBrushSize] = useState(40);
   const [inspectorTab, setInspectorTab] = useState<'layers' | 'transform' | 'style'>('layers');
@@ -803,6 +828,21 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       setCutoutProgress(null);
     }
   }
+  function openCompositionPreview() {
+    const canvas = canvasRef.current;
+    if (!canvas || !baseReadyRef.current) return;
+    try {
+      exportingRef.current = true;
+      setPreview({ src: canvas.toDataURL({ format: 'png', multiplier: 1 }), width: canvas.getWidth(), height: canvas.getHeight() });
+    } catch (cause) {
+      console.error('Composition preview failed:', cause);
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      exportingRef.current = false;
+      canvas.requestRenderAll();
+    }
+  }
+
   function exportComposition() {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -861,9 +901,11 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     return sample;
   }
 
-  async function prepareHarmonization(settings: HarmonizationSettings) {
+  async function prepareHarmonization(settings: HarmonizationSettings, signal: AbortSignal, onProgress: (progress: number) => void) {
+    signal.throwIfAborted();
     if (!canvasRef.current || !layers.length) throw new Error('Wait for the project artwork to load.');
     const state = captureState();
+    let completed = 0;
     const encodeBlob = async (blob: Blob) => new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Unable to encode layer source.'));
@@ -874,10 +916,17 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       backgroundLayerId: layers.find(layer => layer.isBase)?.id,
       layers: await Promise.all(state.layers.map(async (entry, zIndex) => ({
         id: entry.layer.id, name: entry.layer.name, zIndex, values: entry.values, crop: entry.crop,
-        src: await encodeBlob(await pixelsToPng(entry.pixels, entry.layer.object.width, entry.layer.object.height)),
-        mask: entry.mask ? await encodeBlob(await pixelsToPng(entry.mask, entry.mask.width, entry.mask.height)) : undefined,
+        ...await (async () => {
+          signal.throwIfAborted();
+          const src = await encodeBlob(await pixelsToPng(entry.pixels, entry.layer.object.width, entry.layer.object.height));
+          const mask = entry.mask ? await encodeBlob(await pixelsToPng(entry.mask, entry.mask.width, entry.mask.height)) : undefined;
+          signal.throwIfAborted();
+          onProgress(Math.round(++completed / state.layers.length * 90));
+          return { src, mask };
+        })(),
       }))),
     };
+    signal.throwIfAborted();
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload)], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
@@ -903,6 +952,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: '1 1 0', justifyContent: 'flex-end', minWidth: 'max-content' }}>
           <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-label="Undo" disabled={!undoRef.current.length} onClick={() => historyAction('undo')} title="Undo (Ctrl+Z)" style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 5, background: 'transparent', color: undoRef.current.length ? '#b7c7df' : '#4a5260', cursor: 'pointer' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 4-5 5 5 5M4 9h10a6 6 0 0 1 0 12" /></svg></button>
           <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-label="Redo" disabled={!redoRef.current.length} onClick={() => historyAction('redo')} title="Redo (Ctrl+Y)" style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 5, background: 'transparent', color: redoRef.current.length ? '#b7c7df' : '#4a5260', cursor: 'pointer' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 4 5 5-5 5M20 9H10a6 6 0 0 0 0 12" /></svg></button>
+          <button type="button" onClick={openCompositionPreview} disabled={!layers.length} className="text-zinc-200 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ height: 30, background: '#18181b', color: '#e4e4e7', border: '1px solid #27272a', padding: '0 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>Preview</button>
           <button className="hover:!bg-cyan-200 !bg-cyan-300/80 !text-zinc-950 !border-cyan-200/20 transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-200 disabled:opacity-40 disabled:cursor-not-allowed" type="button" onClick={exportComposition} style={{ height: 30, padding: '0 12px', borderRadius: 5, background: '#8ccbd8', color: '#101b28', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' }}>Export Image</button>
         </div>
         <input ref={inputRef} type="file" hidden accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" onChange={event => {
@@ -922,7 +972,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             <label htmlFor="brush-size" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#aab2c0', marginBottom: 10 }}>Brush Size <span>{brushSize}px</span></label>
             <input className="!accent-cyan-300/80" id="brush-size" type="range" min={10} max={150} step={1} value={brushSize} onChange={event => setBrushSize(Number(event.currentTarget.value))} style={{ width: '100%', accentColor: '#8b9fc7' }} />
           </div>}
-          <HarmonizationDock onPrepare={prepareHarmonization} onStart={() => setCurrentStep('harmonize')} />
+          <HarmonizationDock state={harmonizationState} onRun={startHarmonization} onCancel={() => harmonizationRunRef.current?.abort()} onSettingsChange={settings => { harmonizationSettingsRef.current = settings; }} />
           <div style={{ marginTop: 'auto', display: 'grid', gap: 8, paddingTop: 16 }}>
             <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-pressed={viewMode === 'actual'} title="Toggle fitted view and 100% pixel view" onClick={() => {
               const next = viewModeRef.current === 'fit' ? 'actual' : 'fit';
@@ -943,6 +993,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
           </div>
           <div role="tabpanel" aria-label={inspectorTab === 'style' ? 'AristoColors' : inspectorTab === 'transform' ? 'Transform' : 'Layers'} style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {inspectorTab === 'style' ? <AristoColorsProfilePanel key={selectedLayerId ?? 'scene'} getSample={getTelemetrySample} label={selectedLayerId ? `Layer · ${layers.find(layer => layer.id === selectedLayerId)?.name ?? 'Selected image'}` : 'Scene · Visible composition'} /> : inspectorTab === 'transform' ? <>
+          <p role="status" style={{ padding: '0 8px', marginBottom: 10, fontSize: 12, color: '#d4d4d8', overflowWrap: 'anywhere' }}>Target: {selectedLayer ? selectedLayer.name + ' / Image' : 'None selected'}</p>
           {selectedLayer && <ArrangeInspector object={selectedLayer.object} isBase={selectedLayer.isBase}
             canUp={layers.indexOf(selectedLayer) < layers.length - 1} canDown={layers.indexOf(selectedLayer) > 1}
             onStack={arrangeSelected} onAlign={alignSelected} onRotate={rotateSelected}
@@ -953,7 +1004,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
           <h2 className="!text-xs !font-medium uppercase !tracking-wider !text-zinc-400 !mb-2" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.6, color: '#b0b6c2', padding: '0 8px' }}>LAYERS</h2>
           <p style={{ fontSize: 11, color: '#707887', margin: '6px 8px 18px' }}>{layers.length} {layers.length === 1 ? 'layer' : 'layers'}</p>
           {[...layers].reverse().map(layer => (
-            <div key={layer.id} style={{ display: 'flex', alignItems: 'center', gap: 2, minHeight: 40, padding: '0 4px', marginBottom: 3, borderRadius: 7, border: selectedLayerId === layer.id ? '1px solid #7185ad40' : '1px solid transparent', background: selectedLayerId === layer.id ? '#7185ad14' : '#ffffff02', boxShadow: selectedLayerId === layer.id ? 'inset 2px 0 #8b9fc7' : 'none' }}>
+            <div key={layer.id} style={{ display: 'flex', alignItems: 'center', gap: 2, minHeight: 40, padding: '0 4px', marginBottom: 3, borderRadius: 7, border: selectedLayerId === layer.id ? '1px solid #22d3ee80' : '1px solid transparent', background: selectedLayerId === layer.id ? '#08334466' : '#ffffff02', boxShadow: selectedLayerId === layer.id ? 'inset 2px 0 #22d3ee' : 'none' }}>
             <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-label={`${layer.object.visible ? 'Hide' : 'Show'} ${layer.name}`} title={layer.object.visible ? 'Visible — click to hide' : 'Hidden — click to show'} aria-pressed={layer.object.visible} onClick={() => toggleVisibility(layer)} style={{ padding: 5, border: 0, background: 'transparent', color: layer.object.visible ? '#9aa4b5' : '#515968', cursor: 'pointer', flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
@@ -961,14 +1012,14 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
                 {!layer.object.visible && <path d="m3 3 18 18" />}
               </svg>
             </button>
-            <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-pressed={selectedLayerId === layer.id} onClick={() => {
+            <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-white aria-pressed:font-medium [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-pressed={selectedLayerId === layer.id} onClick={() => {
               const canvas = canvasRef.current;
               if (!canvas) return;
               if (layer.object.visible) canvas.setActiveObject(layer.object);
               else canvas.discardActiveObject();
               setSelectedLayerId(layer.id);
               canvas.requestRenderAll();
-            }} title={layer.name} style={{ flex: 1, minWidth: 0, textAlign: 'left', padding: '11px 3px', border: 0, background: 'transparent', color: selectedLayerId === layer.id ? '#dce3ef' : '#aab2c0', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>{layer.name}</button>
+            }} title={layer.name} style={{ flex: 1, minWidth: 0, textAlign: 'left', padding: '11px 3px', border: 0, background: 'transparent', color: selectedLayerId === layer.id ? '#ffffff' : '#aab2c0', fontWeight: selectedLayerId === layer.id ? 500 : 400, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>{layer.name}</button>
             {!layer.isBase && <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-label={`Move ${layer.name} up`} title="Move up" disabled={layers.indexOf(layer) === layers.length - 1} onClick={() => reorderLayer(layer, 1)} style={{ padding: 4, border: 0, background: 'transparent', color: layers.indexOf(layer) === layers.length - 1 ? '#3e4653' : '#9aa4b5', cursor: layers.indexOf(layer) === layers.length - 1 ? 'default' : 'pointer' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button>
               <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-label={`Move ${layer.name} down`} title="Move down" disabled={layers.indexOf(layer) <= 1} onClick={() => reorderLayer(layer, -1)} style={{ padding: 4, border: 0, background: 'transparent', color: layers.indexOf(layer) <= 1 ? '#3e4653' : '#9aa4b5', cursor: layers.indexOf(layer) <= 1 ? 'default' : 'pointer' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button>
@@ -1011,6 +1062,10 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
           </div>
         </aside>
       </div>
+      {preview && <CompositionPreviewModal snapshot={preview} onClose={() => setPreview(null)} onProceed={() => {
+        setPreview(null);
+        void startHarmonization();
+      }} />}
     </main>
   );
 }
