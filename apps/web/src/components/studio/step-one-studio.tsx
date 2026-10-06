@@ -8,14 +8,40 @@ import { removeSolidBackground } from './remove-solid-background';
 import { AristoColorsProfilePanel } from './aristocolors-profile-panel';
 import { applyLayerCrop, emptyCrop, type LayerCrop } from './studio-object-transform';
 import { ArrangeInspector, type StackAction, type AlignAction } from './arrange-inspector';
-import { HarmonizationDock, type HarmonizationSettings } from './harmonization-dock';
+import type { HarmonizationSettings } from './harmonization-dock';
 import { CompositionPreviewModal, type CompositionPreview } from './composition-preview-modal';
 import { harmonizationResultSchema, getAcceptedHarmonizedImage, type HarmonizationResult, type HarmonizationRefinements } from '@/lib/studio/harmonization-contract';
 import { getCanonicalPreset } from '@/lib/studio/canonical-presets';
-import { applyPixelHarmonization, profileParameters, profileRefinements } from '@/lib/studio/pixel-harmonizer';
+import { applyPixelHarmonization, type HarmonizeParameters } from '@/lib/studio/pixel-harmonizer';
 import { loadHarmonizationResult, storeHarmonizationResult, clearHarmonizationResult } from './harmonization-result-storage';
 import { HarmonizedResultView } from './harmonized-result-view';
 import { HarmonizationReviewControls } from './harmonization-review-controls';
+
+// Retain existing lighting/default contracts; ambient tint is sampled by the engine.
+function profileRefinements(profile: ReturnType<typeof getCanonicalPreset>['profile']): HarmonizationRefinements {
+  return {
+    contactShadow: Math.max(40, Math.round(profile.inferredFeatures.lighting.intensity * 65)),
+    edgeFeather: Math.max(8, Math.min(20, profile.deterministicFeatures.textureAnalysis.edgeBleedRadiusPx)),
+    warmth: 0,
+  };
+}
+
+function profileParameters(
+  profile: ReturnType<typeof getCanonicalPreset>['profile'],
+  intensity: number,
+  values: HarmonizationRefinements
+): HarmonizeParameters {
+  const light = profile.inferredFeatures.lighting;
+  return {
+    colorTempKelvin: light.colorTempKelvin,
+    dominantTintHex: '#ffffff',
+    azimuthDeg: light.azimuthDeg,
+    elevationDeg: light.elevationDeg,
+    intensity: Math.max(0, Math.min(1, intensity / 100)),
+    edgeBleedPx: values.edgeFeather,
+    shadowIntensity: values.contactShadow / 100,
+  };
+}
 
 type LayerImage = FabricImage & { studioLayerId: string; studioCrop?: LayerCrop };
 type StudioLayer = { id: string; name: string; object: LayerImage; isBase: boolean; originalSource: HTMLImageElement };
@@ -72,6 +98,8 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   const resultRevisionRef = useRef(0);
   const [refinements, setRefinements] = useState<HarmonizationRefinements>({ contactShadow: 0, edgeFeather: 0, warmth: 0 });
   const [refinementReady, setRefinementReady] = useState(false);
+  const refinementPendingRef = useRef(false);
+  const harmonizedViewportRef = useRef<HTMLDivElement>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
   const acceptingRef = useRef(false);
@@ -81,56 +109,86 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   const refinementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   function cancelRefinement() {
     refinementJobRef.current++;
+    refinementPendingRef.current = false;
     if (refinementTimerRef.current) clearTimeout(refinementTimerRef.current);
     refinementTimerRef.current = null;
   }
   useEffect(() => () => cancelRefinement(), []);
-  function updateRefinements(values: HarmonizationRefinements) {
+  function updateRefinements(values: HarmonizationRefinements, intensity = harmonizationSettingsRef.current.intensity,
+    profileId = activeProfileIdRef.current) {
+    if (harmonizationRunRef.current || acceptingRef.current) return;
     setRefinements(values); setRefinementReady(false); setReviewError(null);
     cancelRefinement();
+    refinementPendingRef.current = true;
     const job = refinementJobRef.current;
     const result = harmonizedResult;
     const inputs = result?.review?.pixelInputs;
-    if (!result?.review || !inputs) { setReviewError('Run Harmonize Scene again to use canonical pixel processing.'); return; }
+    if (!result?.review || !inputs) { refinementPendingRef.current = false; setReviewError('Run Harmonize Scene again to use canonical pixel processing.'); return; }
+    const preset = getCanonicalPreset(profileId);
+    const nextInputs = { ...inputs, profileId: preset.profile.id! };
+    harmonizationSettingsRef.current = { ...harmonizationSettingsRef.current, intensity };
+    const draft = { ...result, audit: { ...result.audit, appliedIntensity: intensity }, review: { ...result.review,
+      acceptedImageUrl: getAcceptedHarmonizedImage(result) ?? undefined,
+      pixelInputs: nextInputs, refinements: values } };
+    setHarmonizedResult(draft);
     refinementTimerRef.current = setTimeout(() => {
       void (async () => {
         try {
-          const profile = getCanonicalPreset(inputs.profileId).profile;
+          const profile = preset.profile;
           const image = await applyPixelHarmonization(result.review!.backgroundImageUrl, inputs.foregroundImageUrl,
-            inputs.foregroundBounds, profileParameters(profile, result.audit.appliedIntensity, values));
+            inputs.foregroundBounds, profileParameters(profile, intensity, values));
           await decodeImage(image);
           if (job !== refinementJobRef.current) return;
-          const next = harmonizationResultSchema.parse({ ...result, review: { ...result.review,
-            acceptedImageUrl: getAcceptedHarmonizedImage(result) ?? undefined,
+          const next = harmonizationResultSchema.parse({ ...draft, review: { ...draft.review,
             refinements: values, refinedImageUrl: image } });
+          refinementPendingRef.current = false;
           setHarmonizedResult(next); setRefinementReady(true);
         } catch (cause) {
-          if (job === refinementJobRef.current) setReviewError(cause instanceof Error ? cause.message : 'Unable to bake the harmonized image.');
+          if (job === refinementJobRef.current) {
+            refinementPendingRef.current = false;
+            setReviewError(cause instanceof Error ? cause.message : 'Unable to bake the harmonized image.');
+          }
         }
       })();
     }, 100);
   }
   useEffect(() => {
+    if (harmonizedResult) {
+      harmonizationSettingsRef.current = { aspectRatio: harmonizedResult.audit.aspectRatio, intensity: harmonizedResult.audit.appliedIntensity };
+    }
     setRefinements(harmonizedResult?.review?.refinements ?? { contactShadow: 0, edgeFeather: 0, warmth: 0 });
-    setRefinementReady(!!harmonizedResult?.review?.refinedImageUrl);
+    setRefinementReady(!!harmonizedResult?.review?.refinedImageUrl && !refinementPendingRef.current);
     setReviewError(null);
   }, [harmonizedResult?.audit.harmonizedAt]);
 
   async function acceptRefinedComposition() {
-    if (!harmonizedResult?.review?.refinedImageUrl || !refinementReady || acceptingRef.current || harmonizationRunRef.current) return;
+    if (!harmonizedResult?.review?.refinedImageUrl || !refinementReady || refinementPendingRef.current || acceptingRef.current || harmonizationRunRef.current) return;
+    const afterImage = harmonizedViewportRef.current?.querySelector<HTMLImageElement>('img[alt="After harmonization"]');
+    const displayedImageUrl = afterImage?.getAttribute('src');
+    if (!afterImage || displayedImageUrl !== harmonizedResult.review.refinedImageUrl) {
+      setReviewError('Wait for the latest After image to finish displaying, then accept again.');
+      return;
+    }
+    // Freeze the exact loaded After source; acceptance never rebakes or uses resultImageUrl.
+    cancelRefinement();
+    const reviewSnapshot = harmonizedResult;
     acceptingRef.current = true;
     resultRevisionRef.current++;
     const run = new AbortController();
     acceptanceRunRef.current = run;
     setAccepting(true); setReviewError(null);
     try {
-      const refinedImageUrl = harmonizedResult.review.refinedImageUrl;
-      const decoded = await decodeImage(refinedImageUrl);
+      const refinedImageUrl = displayedImageUrl;
+      await afterImage.decode();
       run.signal.throwIfAborted();
-      if (decoded.naturalWidth !== harmonizedResult.audit.width || decoded.naturalHeight !== harmonizedResult.audit.height) {
+      if ((afterImage.currentSrc || afterImage.src) !== refinedImageUrl) {
+        throw new Error('The After preview source changed during acceptance. Please retry.');
+      }
+      if (afterImage.naturalWidth !== reviewSnapshot.audit.width || afterImage.naturalHeight !== reviewSnapshot.audit.height) {
         throw new Error('The accepted image does not match the harmonized composition resolution. Please retry.');
       }
-      const accepted = harmonizationResultSchema.parse({ ...harmonizedResult, review: { ...harmonizedResult.review, refinements, refinedImageUrl, acceptedImageUrl: refinedImageUrl, acceptedAt: new Date().toISOString() } });
+      const accepted = harmonizationResultSchema.parse({ ...reviewSnapshot, review: { ...reviewSnapshot.review,
+        refinedImageUrl, acceptedImageUrl: refinedImageUrl, acceptedAt: new Date().toISOString() } });
       await storeHarmonizationResult(localImportToken ?? projectId, accepted, run.signal);
       run.signal.throwIfAborted();
       setHarmonizedResult(accepted);
@@ -147,7 +205,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       return;
     }
     if (currentStep === 'finish') return;
-    if (getAcceptedHarmonizedImage(harmonizedResult)) {
+    if (currentStep !== 'harmonize' && getAcceptedHarmonizedImage(harmonizedResult)) {
       setFinishRequested(false);
       setCurrentStep('finish');
       return;
@@ -169,6 +227,8 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
 
   async function startHarmonization(settings = harmonizationSettingsRef.current) {
     if (harmonizationRunRef.current || acceptingRef.current) return;
+    harmonizationSettingsRef.current = settings;
+    setError(null);
     cancelRefinement();
     resultRevisionRef.current++;
     setFinishRequested(false);
@@ -187,6 +247,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         setHarmonizationState({ busy: false, progress: 100, stage: '', error: null, notice: 'Photometric harmonization complete.' });
       }
     } catch (cause) {
+      if (harmonizationRunRef.current === run) setError(run.signal.aborted ? 'Preparation cancelled.' : cause instanceof Error ? cause.message : 'Unable to harmonize this scene.');
       if (harmonizationRunRef.current === run) setHarmonizationState({ busy: false, progress: 0, stage: '', error: run.signal.aborted ? 'Preparation cancelled.' : cause instanceof Error ? cause.message : 'Unable to prepare the scene request.', notice: null });
     } finally {
       if (harmonizationRunRef.current === run) harmonizationRunRef.current = null;
@@ -1168,7 +1229,26 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             <label htmlFor="brush-size" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#aab2c0', marginBottom: 10 }}>Brush Size <span>{brushSize}px</span></label>
             <input className="!accent-cyan-300/80" id="brush-size" type="range" min={10} max={150} step={1} value={brushSize} onChange={event => setBrushSize(Number(event.currentTarget.value))} style={{ width: '100%', accentColor: '#8b9fc7' }} />
           </div>}
-          <HarmonizationDock state={harmonizationState} onRun={startHarmonization} onCancel={() => harmonizationRunRef.current?.abort()} onSettingsChange={settings => { harmonizationSettingsRef.current = settings; }} />
+          {currentStep === 'compose' && (
+            <button
+              type="button"
+              onClick={() => void startHarmonization({ aspectRatio: harmonizationSettingsRef.current?.aspectRatio ?? '16:9', intensity: harmonizationSettingsRef.current?.intensity ?? 80 })}
+              disabled={harmonizationState.busy || !layers.length}
+              style={{
+                marginTop: 12,
+                padding: '10px 6px',
+                borderRadius: 6,
+                border: '1px solid #9ee9f455',
+                background: '#80cbd9',
+                color: '#0b1723',
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {harmonizationState.busy ? 'Harmonizing…' : '⚡ Proceed to Harmonize →'}
+            </button>
+          )}
           <div style={{ marginTop: 'auto', display: 'grid', gap: 8, paddingTop: 16 }}>
             <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-pressed={viewMode === 'actual'} title="Toggle fitted view and 100% pixel view" onClick={() => {
               const next = viewModeRef.current === 'fit' ? 'actual' : 'fit';
@@ -1179,13 +1259,32 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" disabled={!storageReady || resetting} onClick={() => void resetCanvas()} style={{ padding: 8, borderRadius: 5, background: 'transparent', color: '#929fb2', fontSize: 11, cursor: 'pointer' }}>{resetting ? 'Resetting…' : '↺ Reset Canvas'}</button>
           </div>
         </nav>
-        <div className="flex-1 h-full min-h-0 relative flex items-center justify-center px-2 py-2" style={{ position: 'relative', flex: 1, minWidth: 0, minHeight: 0, padding: 8, overflow: 'hidden' }}>
+        <div ref={harmonizedViewportRef} className="flex-1 h-full min-h-0 relative flex items-center justify-center px-2 py-2" style={{ position: 'relative', flex: 1, minWidth: 0, minHeight: 0, padding: 8, overflow: 'hidden' }}>
           <div ref={hostRef} className="max-h-[calc(100vh-68px)]" style={{ width: '100%', height: '100%', maxHeight: 'calc(100dvh - 68px)', minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }} />
           {currentStep !== 'compose' && harmonizedResult && <HarmonizedResultView result={harmonizedResult} onError={setReviewError} finish={currentStep === 'finish'} onCompose={() => navigateWorkflow('compose')} />}
           {currentStep !== 'compose' && !harmonizedResult && <section style={{ position: 'absolute', inset: 8, background: '#141619', display: 'grid', placeItems: 'center', padding: 24, color: '#a1a1aa' }}><p>Run Harmonize Scene to create a composition for review.</p></section>}
         </div>
         <aside className="overflow-y-auto max-h-[calc(100vh-100px)]" style={{ width: 240, flexShrink: 0, padding: '12px 10px', maxHeight: 'calc(100dvh - 100px)', borderLeft: '1px solid #ffffff0a', background: '#17191e', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-          {currentStep === 'harmonize' ? <HarmonizationReviewControls values={refinements} onChange={updateRefinements} profileId={harmonizedResult?.review?.pixelInputs?.profileId} available={!!harmonizedResult?.review?.pixelInputs && !harmonizationState.busy} saving={accepting} ready={refinementReady && !reviewError} error={reviewError} onAccept={() => void acceptRefinedComposition()} /> : currentStep === 'finish' ? <section style={{ padding: 8, color: '#a1a1aa', fontSize: 12 }}><h2 style={{ color: '#e4e4e7', marginBottom: 12 }}>Finish</h2><p>{harmonizedResult?.review?.acceptedAt ? 'Refined composition saved to this project.' : 'Accept your refinements in Harmonize to save the finished piece.'}</p>{reviewError && <p role="alert" style={{ marginTop: 12, color: '#e4b0b0' }}>{reviewError}</p>}</section> : <>
+          {currentStep === 'harmonize' ? <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}><HarmonizationReviewControls
+              values={refinements}
+              onChange={updateRefinements}
+              profileId={harmonizedResult?.review?.pixelInputs?.profileId ?? activeProfileIdRef.current}
+              onProfileSelect={id => {
+                const preset = getCanonicalPreset(id);
+                activeProfileIdRef.current = id;
+                requestSave(current => current + 1);
+                updateRefinements(profileRefinements(preset.profile), harmonizationSettingsRef.current.intensity, id);
+              }}
+              intensity={harmonizedResult?.audit.appliedIntensity ?? harmonizationSettingsRef.current.intensity}
+              onIntensityChange={value => updateRefinements(refinements, value)}
+              onReHarmonize={() => void startHarmonization(harmonizationSettingsRef.current)}
+              available={!!harmonizedResult?.review?.pixelInputs && !harmonizationState.busy}
+              busy={harmonizationState.busy || accepting}
+              saving={accepting}
+              ready={refinementReady && !reviewError}
+              error={reviewError ?? harmonizationState.error}
+              onAccept={() => void acceptRefinedComposition()}
+            /></div> : currentStep === 'finish' ? <section style={{ padding: 8, color: '#a1a1aa', fontSize: 12 }}><h2 style={{ color: '#e4e4e7', marginBottom: 12 }}>Finish</h2><p>{harmonizedResult?.review?.acceptedAt ? 'Refined composition saved to this project.' : 'Accept your refinements in Harmonize to save the finished piece.'}</p>{reviewError && <p role="alert" style={{ marginTop: 12, color: '#e4b0b0' }}>{reviewError}</p>}</section> : <>
           <div role="tablist" aria-label="Inspector" style={{ display: 'flex', flexShrink: 0, gap: 2, marginBottom: 12, padding: 3, background: '#101216', borderRadius: 6 }}>
             {([['layers', 'Layers'], ['transform', 'Transform'], ['style', 'AristoColors']] as const).map(([tab, label]) =>
               <button key={tab} type="button" role="tab" aria-selected={inspectorTab === tab} disabled={tab === 'transform' && !selectedLayer} onClick={() => setInspectorTab(tab)} style={{ flex: 1, minWidth: 0, padding: '7px 3px', fontSize: 11, borderRadius: 4, border: '1px solid #3f3f46', background: inspectorTab === tab ? '#3f3f46' : '#18181b', color: inspectorTab === tab ? '#ffffff' : '#a1a1aa', cursor: tab === 'transform' && !selectedLayer ? 'default' : 'pointer' }}>{label}</button>)}
