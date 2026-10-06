@@ -34,7 +34,7 @@ export function HarmonizationDock({ state, onRun, onCancel, onSettingsChange }: 
       </div>
       <button className="hover:!bg-cyan-200 !bg-cyan-300/80 !text-zinc-950 !border-cyan-200/20 transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-200 disabled:opacity-40 disabled:cursor-not-allowed" type="button" disabled={state.busy} aria-busy={state.busy} onClick={() => void onRun({ aspectRatio, intensity })} style={{ width: '100%', padding: '9px 4px', borderRadius: 7, border: '1px solid #9ee9f455', background: '#80cbd9', color: '#0b1723', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>{state.busy ? <><span aria-hidden="true" className="inline-block animate-spin" style={{ marginRight: 6 }}>◌</span>{state.stage}</> : '⚡ HARMONIZE SCENE'}</button>
     </div>
-    <p title="Estimated credits; target lighting context. No credits charged when preparing a request." style={{ marginTop: 8, fontSize: 9, color: '#9fb0c9' }}>⚡ 5 Credits • Matched to Light</p>
+    <p title="Initial local photometric pass; no credits charged." style={{ marginTop: 8, fontSize: 9, color: '#9fb0c9' }}>Photometric pass • Matched to Light</p>
     {state.busy && <div aria-live="polite" style={{ marginTop: 8 }}>
       <progress aria-label="Scene preparation progress" max={100} value={state.progress} style={{ width: '100%', height: 4, accentColor: '#80cbd9' }} />
       <span style={{ fontSize: 10, color: '#9fb0c9' }}>{state.progress}%</span>

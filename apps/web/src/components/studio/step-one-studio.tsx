@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Canvas, FabricImage, util } from 'fabric';
+import { Canvas, StaticCanvas, FabricImage, util } from 'fabric';
 import { loadStudioManifest, saveStudioManifest, clearStudioManifest, pixelsToPng, type StoredStudioManifest } from './studio-project-storage';
 import { removeSolidBackground } from './remove-solid-background';
 import { AristoColorsProfilePanel } from './aristocolors-profile-panel';
@@ -10,6 +10,12 @@ import { applyLayerCrop, emptyCrop, type LayerCrop } from './studio-object-trans
 import { ArrangeInspector, type StackAction, type AlignAction } from './arrange-inspector';
 import { HarmonizationDock, type HarmonizationSettings } from './harmonization-dock';
 import { CompositionPreviewModal, type CompositionPreview } from './composition-preview-modal';
+import { harmonizationResultSchema, getAcceptedHarmonizedImage, type HarmonizationResult, type HarmonizationRefinements } from '@/lib/studio/harmonization-contract';
+import { getCanonicalPreset } from '@/lib/studio/canonical-presets';
+import { applyPixelHarmonization, profileParameters, profileRefinements } from '@/lib/studio/pixel-harmonizer';
+import { loadHarmonizationResult, storeHarmonizationResult, clearHarmonizationResult } from './harmonization-result-storage';
+import { HarmonizedResultView } from './harmonized-result-view';
+import { HarmonizationReviewControls } from './harmonization-review-controls';
 
 type LayerImage = FabricImage & { studioLayerId: string; studioCrop?: LayerCrop };
 type StudioLayer = { id: string; name: string; object: LayerImage; isBase: boolean; originalSource: HTMLImageElement };
@@ -61,23 +67,125 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   const [title, setTitle] = useState(projectTitle);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<CompositionPreview | null>(null);
+  const [harmonizedResult, setHarmonizedResult] = useState<HarmonizationResult | null>(null);
+  const activeProfileIdRef = useRef(getCanonicalPreset().profile.id);
+  const resultRevisionRef = useRef(0);
+  const [refinements, setRefinements] = useState<HarmonizationRefinements>({ contactShadow: 0, edgeFeather: 0, warmth: 0 });
+  const [refinementReady, setRefinementReady] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState(false);
+  const acceptingRef = useRef(false);
+  const [finishRequested, setFinishRequested] = useState(false);
+  const acceptanceRunRef = useRef<AbortController | null>(null);
+  const refinementJobRef = useRef(0);
+  const refinementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function cancelRefinement() {
+    refinementJobRef.current++;
+    if (refinementTimerRef.current) clearTimeout(refinementTimerRef.current);
+    refinementTimerRef.current = null;
+  }
+  useEffect(() => () => cancelRefinement(), []);
+  function updateRefinements(values: HarmonizationRefinements) {
+    setRefinements(values); setRefinementReady(false); setReviewError(null);
+    cancelRefinement();
+    const job = refinementJobRef.current;
+    const result = harmonizedResult;
+    const inputs = result?.review?.pixelInputs;
+    if (!result?.review || !inputs) { setReviewError('Run Harmonize Scene again to use canonical pixel processing.'); return; }
+    refinementTimerRef.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const profile = getCanonicalPreset(inputs.profileId).profile;
+          const image = await applyPixelHarmonization(result.review!.backgroundImageUrl, inputs.foregroundImageUrl,
+            inputs.foregroundBounds, profileParameters(profile, result.audit.appliedIntensity, values));
+          await decodeImage(image);
+          if (job !== refinementJobRef.current) return;
+          const next = harmonizationResultSchema.parse({ ...result, review: { ...result.review,
+            acceptedImageUrl: getAcceptedHarmonizedImage(result) ?? undefined,
+            refinements: values, refinedImageUrl: image } });
+          setHarmonizedResult(next); setRefinementReady(true);
+        } catch (cause) {
+          if (job === refinementJobRef.current) setReviewError(cause instanceof Error ? cause.message : 'Unable to bake the harmonized image.');
+        }
+      })();
+    }, 100);
+  }
+  useEffect(() => {
+    setRefinements(harmonizedResult?.review?.refinements ?? { contactShadow: 0, edgeFeather: 0, warmth: 0 });
+    setRefinementReady(!!harmonizedResult?.review?.refinedImageUrl);
+    setReviewError(null);
+  }, [harmonizedResult?.audit.harmonizedAt]);
+
+  async function acceptRefinedComposition() {
+    if (!harmonizedResult?.review?.refinedImageUrl || !refinementReady || acceptingRef.current || harmonizationRunRef.current) return;
+    acceptingRef.current = true;
+    resultRevisionRef.current++;
+    const run = new AbortController();
+    acceptanceRunRef.current = run;
+    setAccepting(true); setReviewError(null);
+    try {
+      const refinedImageUrl = harmonizedResult.review.refinedImageUrl;
+      const decoded = await decodeImage(refinedImageUrl);
+      run.signal.throwIfAborted();
+      if (decoded.naturalWidth !== harmonizedResult.audit.width || decoded.naturalHeight !== harmonizedResult.audit.height) {
+        throw new Error('The accepted image does not match the harmonized composition resolution. Please retry.');
+      }
+      const accepted = harmonizationResultSchema.parse({ ...harmonizedResult, review: { ...harmonizedResult.review, refinements, refinedImageUrl, acceptedImageUrl: refinedImageUrl, acceptedAt: new Date().toISOString() } });
+      await storeHarmonizationResult(localImportToken ?? projectId, accepted, run.signal);
+      run.signal.throwIfAborted();
+      setHarmonizedResult(accepted);
+      setFinishRequested(false);
+      setCurrentStep('finish');
+    } catch (cause) { if (!run.signal.aborted) setReviewError(cause instanceof Error ? cause.message : 'Unable to save the refined piece. Please retry.'); }
+    finally { if (acceptanceRunRef.current === run) { acceptanceRunRef.current = null; acceptingRef.current = false; setAccepting(false); } }
+  }
+  function navigateWorkflow(step: 'compose' | 'harmonize' | 'finish') {
+    if (acceptingRef.current || harmonizationRunRef.current) return;
+    if (step !== 'finish') {
+      setFinishRequested(false);
+      setCurrentStep(step);
+      return;
+    }
+    if (currentStep === 'finish') return;
+    if (getAcceptedHarmonizedImage(harmonizedResult)) {
+      setFinishRequested(false);
+      setCurrentStep('finish');
+      return;
+    }
+    setCurrentStep('harmonize');
+    if (harmonizedResult?.review) setFinishRequested(true);
+  }
+  useEffect(() => {
+    if (finishRequested && currentStep === 'harmonize' && refinementReady && !reviewError && !accepting) {
+      setFinishRequested(false);
+      void acceptRefinedComposition();
+    }
+  });
   const harmonizationRunRef = useRef<AbortController | null>(null);
   const harmonizationSettingsRef = useRef<HarmonizationSettings>({ aspectRatio: '16:9', intensity: 80 });
   const [harmonizationState, setHarmonizationState] = useState<{ busy: boolean; progress: number; stage: string; error: string | null; notice: string | null }>({ busy: false, progress: 0, stage: '', error: null, notice: null });
 
-  useEffect(() => () => { harmonizationRunRef.current?.abort(); harmonizationRunRef.current = null; }, []);
+  useEffect(() => () => { harmonizationRunRef.current?.abort(); harmonizationRunRef.current = null; acceptanceRunRef.current?.abort(); acceptanceRunRef.current = null; }, []);
 
   async function startHarmonization(settings = harmonizationSettingsRef.current) {
-    if (harmonizationRunRef.current) return;
+    if (harmonizationRunRef.current || acceptingRef.current) return;
+    cancelRefinement();
+    resultRevisionRef.current++;
+    setFinishRequested(false);
     const run = new AbortController();
     harmonizationRunRef.current = run;
-    setCurrentStep('harmonize');
     setHarmonizationState({ busy: true, progress: 0, stage: 'Analyzing AristoColors...', error: null, notice: null });
     try {
-      await prepareHarmonization(settings, run.signal, progress => {
-        if (harmonizationRunRef.current === run) setHarmonizationState(current => ({ ...current, progress, stage: 'Preparing composite request...' }));
+      const result = await prepareHarmonization(settings, run.signal, progress => {
+        if (harmonizationRunRef.current === run) setHarmonizationState(current => ({ ...current, progress, stage: progress < 50 ? 'Analyzing AristoColors...' : 'Harmonizing composite...' }));
       });
-      if (!run.signal.aborted && harmonizationRunRef.current === run) setHarmonizationState({ busy: false, progress: 100, stage: '', error: null, notice: 'Scene request downloaded. Harmonization engine is not connected yet.' });
+      run.signal.throwIfAborted();
+      await storeHarmonizationResult(localImportToken ?? projectId, result, run.signal);
+      if (!run.signal.aborted && harmonizationRunRef.current === run) {
+        setHarmonizedResult(result);
+        setCurrentStep('harmonize');
+        setHarmonizationState({ busy: false, progress: 100, stage: '', error: null, notice: 'Photometric harmonization complete.' });
+      }
     } catch (cause) {
       if (harmonizationRunRef.current === run) setHarmonizationState({ busy: false, progress: 0, stage: '', error: run.signal.aborted ? 'Preparation cancelled.' : cause instanceof Error ? cause.message : 'Unable to prepare the scene request.', notice: null });
     } finally {
@@ -109,6 +217,16 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   const liveLayersRef = useRef(layers);
   liveLayersRef.current = layers;
   const storageKey = `aristocolors_project_${localImportToken ?? projectId}_manifest`;
+
+  useEffect(() => {
+    let active = true;
+    const epoch = editEpochRef.current;
+    const revision = resultRevisionRef.current;
+    void loadHarmonizationResult(localImportToken ?? projectId).then(result => {
+      if (active && epoch === editEpochRef.current && revision === resultRevisionRef.current) setHarmonizedResult(result);
+    }).catch(cause => { if (active) console.error('Unable to restore harmonized result:', cause); });
+    return () => { active = false; };
+  }, [localImportToken, projectId]);
 
   function captureState(): Snapshot {
     return { selectedId: selectedLayerId, layers: liveLayersRef.current.map(layer => {
@@ -264,6 +382,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         const storedManifest = await loadStudioManifest(storageKey);
         if (canvasRef.current !== canvas) return;
         if (storedManifest) {
+          activeProfileIdRef.current = getCanonicalPreset(storedManifest.activeAristoColorsId).profile.id;
           canvas.setDimensions({ width: storedManifest.width, height: storedManifest.height });
           fitCanvas();
           const restoredLayers: StudioLayer[] = [];
@@ -367,6 +486,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         }));
         if (generation !== saveGenerationRef.current || canvasRef.current !== canvas) return;
         await saveStudioManifest(storageKey, { version: 1, title, selectedLayerId,
+          activeAristoColorsId: activeProfileIdRef.current,
           width: canvas.getWidth(), height: canvas.getHeight(), layers: savedLayers },
           () => generation === saveGenerationRef.current && canvasRef.current === canvas && !suppressSaveRef.current);
         if (generation === saveGenerationRef.current && !suppressSaveRef.current) {
@@ -395,12 +515,24 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     if (!canvas || !base || resetting) return;
     if (!window.confirm('Reset this canvas to its original artwork? Added layers and the saved composition will be removed.')) return;
     setResetting(true);
+    cancelRefinement();
+    resultRevisionRef.current++;
+    setFinishRequested(false);
+    acceptanceRunRef.current?.abort();
+    acceptanceRunRef.current = null;
+    acceptingRef.current = false;
+    setAccepting(false);
+    harmonizationRunRef.current?.abort();
+    harmonizationRunRef.current = null;
+    setHarmonizationState({ busy: false, progress: 0, stage: '', error: null, notice: null });
     editEpochRef.current++;
     suppressSaveRef.current = true;
     saveGenerationRef.current++;
     setTool('move');
     try {
       await clearStudioManifest(storageKey);
+      await clearHarmonizationResult(localImportToken ?? projectId);
+      setHarmonizedResult(null);
       if (canvasRef.current !== canvas) return;
       canvas.discardActiveObject();
       canvas.remove(...canvas.getObjects().filter(object => object !== base.object));
@@ -475,7 +607,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
 
   useEffect(() => {
     const handleDelete = (event: KeyboardEvent) => {
-      if (resetting) return;
+      if (resetting || currentStep !== 'compose') return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.closest('input, textarea, select') || target.isContentEditable)) return;
       const key = event.key.toLowerCase();
@@ -497,7 +629,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     };
     window.addEventListener('keydown', handleDelete);
     return () => window.removeEventListener('keydown', handleDelete);
-  }, [layers, selectedLayerId, resetting]);
+  }, [layers, selectedLayerId, resetting, currentStep]);
 
   function toggleVisibility(layer: StudioLayer) {
     const canvas = canvasRef.current;
@@ -845,10 +977,21 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
 
   function exportComposition() {
     const canvas = canvasRef.current;
-    if (!canvas) return;
     try {
       exportingRef.current = true;
-      const url = canvas.toDataURL({ format: 'png', multiplier: 1 });
+      let url: string;
+      const acceptedImage = getAcceptedHarmonizedImage(harmonizedResult);
+      if (acceptedImage) {
+        url = acceptedImage;
+      } else if (currentStep === 'finish') {
+        throw new Error('Accept the Harmonize result before exporting Finish.');
+      } else if (currentStep === 'harmonize') {
+        if (!refinementReady || !harmonizedResult?.review?.refinedImageUrl) throw new Error('Wait for the harmonized image to finish processing before exporting.');
+        url = harmonizedResult.review.refinedImageUrl;
+      } else {
+        if (!canvas) throw new Error('Wait for the composition canvas to load before exporting.');
+        url = canvas.toDataURL({ format: 'png', multiplier: 1 });
+      }
       const link = document.createElement('a');
       link.href = url;
       link.download = `${title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim() || 'project'}-composite.png`;
@@ -860,7 +1003,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       exportingRef.current = false;
-      canvas.requestRenderAll();
+      canvas?.requestRenderAll();
     }
   }
 
@@ -901,42 +1044,95 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     return sample;
   }
 
-  async function prepareHarmonization(settings: HarmonizationSettings, signal: AbortSignal, onProgress: (progress: number) => void) {
+  async function prepareHarmonization(settings: HarmonizationSettings, signal: AbortSignal, onProgress: (progress: number) => void): Promise<HarmonizationResult> {
     signal.throwIfAborted();
-    if (!canvasRef.current || !layers.length) throw new Error('Wait for the project artwork to load.');
-    const state = captureState();
-    let completed = 0;
-    const encodeBlob = async (blob: Blob) => new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Unable to encode layer source.'));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
+    const canvas = canvasRef.current;
+    const base = layers.find(layer => layer.isBase);
+    if (!canvas || !base || !baseReadyRef.current) throw new Error('Wait for the project artwork to load.');
+    const width = canvas.getWidth(), height = canvas.getHeight();
+    let compositeImage: string;
+    try {
+      exportingRef.current = true;
+      compositeImage = canvas.toDataURL({ format: 'png', multiplier: 1 });
+    } finally {
+      exportingRef.current = false;
+      canvas.requestRenderAll();
+    }
+    // Copy decoded pixels directly: Fabric clone() reloads src, which may be a revoked import blob URL.
+    const clones = layers.map(layer => {
+      const original = layer.object;
+      const pixels = document.createElement('canvas');
+      pixels.width = original.width;
+      pixels.height = original.height;
+      const context = pixels.getContext('2d');
+      if (!context) throw new Error('Unable to copy layer pixels for harmonization.');
+      context.drawImage(original.getElement(), 0, 0, pixels.width, pixels.height);
+      const object = new FabricImage(pixels, {
+        left: original.left, top: original.top, originX: original.originX, originY: original.originY,
+        scaleX: original.scaleX, scaleY: original.scaleY, angle: original.angle,
+        skewX: original.skewX, skewY: original.skewY, flipX: original.flipX, flipY: original.flipY,
+        opacity: original.opacity, visible: original.visible, globalCompositeOperation: original.globalCompositeOperation,
+      });
+      applyLayerCrop(object, { ...(original.studioCrop ?? emptyCrop()) });
+      return { isBase: layer.isBase, object };
     });
-    const payload = { version: 1, projectId: localImportToken ?? projectId, title, settings,
-      backgroundLayerId: layers.find(layer => layer.isBase)?.id,
-      layers: await Promise.all(state.layers.map(async (entry, zIndex) => ({
-        id: entry.layer.id, name: entry.layer.name, zIndex, values: entry.values, crop: entry.crop,
-        ...await (async () => {
-          signal.throwIfAborted();
-          const src = await encodeBlob(await pixelsToPng(entry.pixels, entry.layer.object.width, entry.layer.object.height));
-          const mask = entry.mask ? await encodeBlob(await pixelsToPng(entry.mask, entry.mask.width, entry.mask.height)) : undefined;
-          signal.throwIfAborted();
-          onProgress(Math.round(++completed / state.layers.length * 90));
-          return { src, mask };
-        })(),
-      }))),
-    };
     signal.throwIfAborted();
-    const url = URL.createObjectURL(new Blob([JSON.stringify(payload)], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${title.replace(/[<>:"/\\|?*]/g, '-').trim() || 'project'}-harmonization-request.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const background = new StaticCanvas(undefined, { width, height, backgroundColor: canvas.backgroundColor, renderOnAddRemove: false });
+    const foreground = new StaticCanvas(undefined, { width, height, backgroundColor: '', renderOnAddRemove: false });
+    try {
+      for (const entry of clones) (entry.isBase ? background : foreground).add(entry.object);
+      const preset = getCanonicalPreset(activeProfileIdRef.current);
+      const values = profileRefinements(preset.profile);
+      const [rw, rh] = settings.aspectRatio.split(':').map(Number);
+      const unit = Math.ceil(Math.max(width / rw, height / rh));
+      const targetWidth = unit * rw, targetHeight = unit * rh;
+      if (targetWidth * targetHeight > 8_000_000) throw new Error('The target frame exceeds the 8 megapixel processing limit.');
+      const offsetX = Math.floor((targetWidth - width) / 2), offsetY = Math.floor((targetHeight - height) / 2);
+      const frame = (source: CanvasImageSource, transparent = false) => {
+        const output = document.createElement('canvas'); output.width = targetWidth; output.height = targetHeight;
+        const context = output.getContext('2d');
+        if (!context) throw new Error('Unable to create the harmonization frame.');
+        if (!transparent) { context.fillStyle = '#141619'; context.fillRect(0, 0, targetWidth, targetHeight); }
+        context.drawImage(source, offsetX, offsetY); return output;
+      };
+      const foregroundCanvas = foreground.toCanvasElement();
+      const fgContext = foregroundCanvas.getContext('2d');
+      if (!fgContext) throw new Error('Unable to read foreground pixels.');
+      const pixels = fgContext.getImageData(0, 0, width, height).data;
+      let left = width, top = height, right = -1, bottom = -1;
+      for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+        if (pixels[(y * width + x) * 4 + 3]) {
+          left = Math.min(left, x); top = Math.min(top, y); right = Math.max(right, x); bottom = Math.max(bottom, y);
+        }
+      }
+      if (right < left) throw new Error('Add a visible foreground image before harmonizing.');
+      const cutout = document.createElement('canvas'); cutout.width = right - left + 1; cutout.height = bottom - top + 1;
+      const cutoutContext = cutout.getContext('2d');
+      if (!cutoutContext) throw new Error('Unable to capture the foreground cutout.');
+      cutoutContext.drawImage(foregroundCanvas, left, top, cutout.width, cutout.height, 0, 0, cutout.width, cutout.height);
+      const foregroundImageUrl = cutout.toDataURL('image/png');
+      const foregroundBounds = { x: left + offsetX, y: top + offsetY, width: cutout.width, height: cutout.height };
+      const backgroundImageUrl = frame(background.toCanvasElement()).toDataURL('image/png');
+      const beforeImageUrl = frame(await decodeImage(compositeImage)).toDataURL('image/png');
+      signal.throwIfAborted(); onProgress(50);
+      const refinedImageUrl = await applyPixelHarmonization(backgroundImageUrl, foregroundImageUrl,
+        foregroundBounds, profileParameters(preset.profile, settings.intensity, values));
+      signal.throwIfAborted(); await decodeImage(refinedImageUrl); signal.throwIfAborted(); onProgress(95);
+      const palette = preset.profile.deterministicFeatures.palette;
+      return harmonizationResultSchema.parse({ success: true, resultImageUrl: refinedImageUrl,
+        review: { beforeImageUrl, backgroundImageUrl, foregroundMaskUrl: frame(foregroundCanvas, true).toDataURL('image/png'),
+          pixelInputs: { profileId: preset.profile.id, foregroundImageUrl, foregroundBounds },
+          backgroundLab: ['l', 'a', 'b'].map(key => palette.reduce((sum, color) => sum + color.lab[key as keyof typeof color.lab] * color.weight, 0)),
+          lightingAzimuth: (preset.profile.inferredFeatures.lighting.azimuthDeg + 360) % 360,
+          refinements: values, refinedImageUrl },
+        audit: { harmonizedAt: new Date().toISOString(), appliedIntensity: settings.intensity, lightingMatchScore: null,
+          method: 'pixel-v1', scoreMeaning: 'luminance-statistics-similarity', width: targetWidth, height: targetHeight,
+          aspectRatio: settings.aspectRatio, processedForegroundPixels: pixels.reduce((sum, alpha, index) => sum + (index % 4 === 3 && alpha > 0 ? 1 : 0), 0) } });
+    } finally {
+      await background.dispose();
+      await foreground.dispose();
+    }
   }
-
   return (
     <main aria-busy={resetting} style={{ height: '100dvh', overflow: 'hidden', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: '#141619', color: '#e5e7eb', pointerEvents: resetting ? 'none' : undefined }}>
       <header className="h-14" style={{ height: 56, minHeight: 56, maxHeight: 56, flexShrink: 0, padding: '0 16px', gap: 16, display: 'flex', alignItems: 'center', borderBottom: '1px solid #ffffff0a', overflow: 'hidden' }}>
@@ -947,7 +1143,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         </div>
         <div aria-label="Workflow steps" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {([['compose', '01 Compose'], ['harmonize', '02 Harmonize'], ['finish', '03 Finish']] as const).map(([step, label]) =>
-            <button className="transition-colors duration-150 hover:!bg-[#1f1f23] hover:!border-[#3f3f46] focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/50" key={step} type="button" aria-current={currentStep === step ? 'step' : undefined} onClick={() => setCurrentStep(step)} style={{ height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 500, lineHeight: 1, padding: '0 10px', borderRadius: 5, border: currentStep === step ? '1px solid #22d3ee' : '1px solid #27272a', background: currentStep === step ? 'rgba(8, 145, 178, 0.2)' : '#18181b', color: currentStep === step ? '#f4f4f5' : '#a1a1aa', whiteSpace: 'nowrap', cursor: 'pointer' }}>{label}</button>)}
+            <button className="transition-colors duration-150 hover:!bg-[#1f1f23] hover:!border-[#3f3f46] focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/50" key={step} type="button" aria-current={currentStep === step ? 'step' : undefined} onClick={() => navigateWorkflow(step)} style={{ height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 500, lineHeight: 1, padding: '0 10px', borderRadius: 5, border: currentStep === step ? '1px solid #22d3ee' : '1px solid #27272a', background: currentStep === step ? 'rgba(8, 145, 178, 0.2)' : '#18181b', color: currentStep === step ? '#f4f4f5' : '#a1a1aa', whiteSpace: 'nowrap', cursor: 'pointer' }}>{label}</button>)}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: '1 1 0', justifyContent: 'flex-end', minWidth: 'max-content' }}>
           <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-label="Undo" disabled={!undoRef.current.length} onClick={() => historyAction('undo')} title="Undo (Ctrl+Z)" style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 5, background: 'transparent', color: undoRef.current.length ? '#b7c7df' : '#4a5260', cursor: 'pointer' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 4-5 5 5 5M4 9h10a6 6 0 0 1 0 12" /></svg></button>
@@ -983,10 +1179,13 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" disabled={!storageReady || resetting} onClick={() => void resetCanvas()} style={{ padding: 8, borderRadius: 5, background: 'transparent', color: '#929fb2', fontSize: 11, cursor: 'pointer' }}>{resetting ? 'Resetting…' : '↺ Reset Canvas'}</button>
           </div>
         </nav>
-        <div className="flex-1 h-full min-h-0 relative flex items-center justify-center px-2 py-2" style={{ flex: 1, minWidth: 0, minHeight: 0, padding: 8, overflow: 'hidden' }}>
+        <div className="flex-1 h-full min-h-0 relative flex items-center justify-center px-2 py-2" style={{ position: 'relative', flex: 1, minWidth: 0, minHeight: 0, padding: 8, overflow: 'hidden' }}>
           <div ref={hostRef} className="max-h-[calc(100vh-68px)]" style={{ width: '100%', height: '100%', maxHeight: 'calc(100dvh - 68px)', minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }} />
+          {currentStep !== 'compose' && harmonizedResult && <HarmonizedResultView result={harmonizedResult} onError={setReviewError} finish={currentStep === 'finish'} onCompose={() => navigateWorkflow('compose')} />}
+          {currentStep !== 'compose' && !harmonizedResult && <section style={{ position: 'absolute', inset: 8, background: '#141619', display: 'grid', placeItems: 'center', padding: 24, color: '#a1a1aa' }}><p>Run Harmonize Scene to create a composition for review.</p></section>}
         </div>
         <aside className="overflow-y-auto max-h-[calc(100vh-100px)]" style={{ width: 240, flexShrink: 0, padding: '12px 10px', maxHeight: 'calc(100dvh - 100px)', borderLeft: '1px solid #ffffff0a', background: '#17191e', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          {currentStep === 'harmonize' ? <HarmonizationReviewControls values={refinements} onChange={updateRefinements} profileId={harmonizedResult?.review?.pixelInputs?.profileId} available={!!harmonizedResult?.review?.pixelInputs && !harmonizationState.busy} saving={accepting} ready={refinementReady && !reviewError} error={reviewError} onAccept={() => void acceptRefinedComposition()} /> : currentStep === 'finish' ? <section style={{ padding: 8, color: '#a1a1aa', fontSize: 12 }}><h2 style={{ color: '#e4e4e7', marginBottom: 12 }}>Finish</h2><p>{harmonizedResult?.review?.acceptedAt ? 'Refined composition saved to this project.' : 'Accept your refinements in Harmonize to save the finished piece.'}</p>{reviewError && <p role="alert" style={{ marginTop: 12, color: '#e4b0b0' }}>{reviewError}</p>}</section> : <>
           <div role="tablist" aria-label="Inspector" style={{ display: 'flex', flexShrink: 0, gap: 2, marginBottom: 12, padding: 3, background: '#101216', borderRadius: 6 }}>
             {([['layers', 'Layers'], ['transform', 'Transform'], ['style', 'AristoColors']] as const).map(([tab, label]) =>
               <button key={tab} type="button" role="tab" aria-selected={inspectorTab === tab} disabled={tab === 'transform' && !selectedLayer} onClick={() => setInspectorTab(tab)} style={{ flex: 1, minWidth: 0, padding: '7px 3px', fontSize: 11, borderRadius: 4, border: '1px solid #3f3f46', background: inspectorTab === tab ? '#3f3f46' : '#18181b', color: inspectorTab === tab ? '#ffffff' : '#a1a1aa', cursor: tab === 'transform' && !selectedLayer ? 'default' : 'pointer' }}>{label}</button>)}
@@ -1060,6 +1259,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
           </section>}
           </>}
           </div>
+          </>}
         </aside>
       </div>
       {preview && <CompositionPreviewModal snapshot={preview} onClose={() => setPreview(null)} onProceed={() => {

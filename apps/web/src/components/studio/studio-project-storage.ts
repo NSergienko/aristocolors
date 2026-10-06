@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CanvasLayerManifestSchema } from '@aristocolors/contracts';
 const cropSchema = z.object({ top: z.number().min(0).max(100), bottom: z.number().min(0).max(100),
   left: z.number().min(0).max(100), right: z.number().min(0).max(100) })
   .refine(crop => crop.top + crop.bottom <= 100 && crop.left + crop.right <= 100)
@@ -11,6 +12,7 @@ const valuesSchema = z.object({
   flipX: z.boolean().default(false), flipY: z.boolean().default(false),
 });
 const manifestSchema = z.object({
+  activeAristoColorsId: CanvasLayerManifestSchema.shape.activeAristoColorsId,
   version: z.literal(1), title: z.string(), selectedLayerId: z.string().nullable(),
   width: z.number().positive(), height: z.number().positive(),
   layers: z.array(z.object({
@@ -22,6 +24,7 @@ const manifestSchema = z.object({
 });
 export type StoredStudioManifest = z.infer<typeof manifestSchema>;
 const canonicalSchema = z.object({
+  activeAristoColorsId: CanvasLayerManifestSchema.shape.activeAristoColorsId,
   version: z.literal(2), assetKey: z.string(), title: z.string(), selectedLayerId: z.string().nullable(),
   width: z.number().positive(), height: z.number().positive(),
   layers: z.array(z.object({
@@ -59,7 +62,7 @@ export async function loadStudioManifest(key: string): Promise<StoredStudioManif
     let manifest = manifestSchema.parse(value);
     if (canonical) {
       const assets = new Map(manifest.layers.map(layer => [layer.id, layer]));
-      manifest = { ...manifest, title: canonical.title, selectedLayerId: canonical.selectedLayerId,
+      manifest = { ...manifest, activeAristoColorsId: canonical.activeAristoColorsId, title: canonical.title, selectedLayerId: canonical.selectedLayerId,
         width: canonical.width, height: canonical.height,
         layers: canonical.layers.map(layer => {
           const asset = assets.get(layer.id);
@@ -100,6 +103,7 @@ export async function saveStudioManifest(key: string, manifest: StoredStudioMani
     const previous = previousJson ? canonicalSchema.safeParse(JSON.parse(previousJson)) : null;
     try {
       localStorage.setItem(key, JSON.stringify({ version: 2, assetKey, title: manifest.title,
+        activeAristoColorsId: manifest.activeAristoColorsId,
         selectedLayerId: manifest.selectedLayerId, width: manifest.width, height: manifest.height,
         layers: manifest.layers.map(layer => ({ id: layer.id, name: layer.name, isBase: layer.isBase,
           src: `indexeddb:${assetKey}:${layer.id}`, x: layer.values.left, y: layer.values.top,

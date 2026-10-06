@@ -1240,3 +1240,417 @@
 2026-10-05 16:17:33.329+03:00[00:04.655] P12796T26664     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
 2026-10-05 16:17:33.329+03:00[00:04.656] P12796T26664     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
 2026-10-05 16:17:33.329+03:00[00:04.660] P12796T13980 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 13980
+2026-10-05 16:51:36.759+03:00[34:08.085] P29292T12440 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 16:51:36.759+03:00[34:08.085] P29292T12440     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 52ms after process creation.
+2026-10-05 16:51:36.759+03:00[34:08.086] P29292T12440     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 16:51:36.768+03:00[34:08.101] P29292T12440 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 16:51:36.774+03:00[34:08.101] P29292T12440 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 16:51:36.774+03:00[34:08.101] P29292T12440     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 69ms after process creation.
+2026-10-05 16:51:36.774+03:00[34:08.101] P29292T12440     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 16ms.
+2026-10-05 16:51:36.774+03:00[34:08.101] P29292T12440     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 16:51:36.782+03:00[34:08.110] P29292T24940 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 24940
+2026-10-05 16:51:54.489+03:00[34:25.819] P26984T18144 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 16:51:54.489+03:00[34:25.819] P26984T18144     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 41ms after process creation.
+2026-10-05 16:51:54.489+03:00[34:25.819] P26984T18144     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 16:51:54.502+03:00[34:25.830] P26984T18144 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 16:51:54.502+03:00[34:25.831] P26984T18144 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 16:51:54.502+03:00[34:25.831] P26984T18144     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 54ms after process creation.
+2026-10-05 16:51:54.502+03:00[34:25.831] P26984T18144     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 16:51:54.502+03:00[34:25.831] P26984T18144     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 16:51:54.509+03:00[34:25.835] P26984T22540 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 22540
+2026-10-05 16:52:13.409+03:00[34:44.745] P23592T23576 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 16:52:13.419+03:00[34:44.745] P23592T23576     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 40ms after process creation.
+2026-10-05 16:52:13.419+03:00[34:44.746] P23592T23576     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 16:52:13.429+03:00[34:44.756] P23592T23576 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 16:52:13.429+03:00[34:44.757] P23592T23576 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 16:52:13.429+03:00[34:44.757] P23592T23576     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 55ms after process creation.
+2026-10-05 16:52:13.429+03:00[34:44.757] P23592T23576     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 15ms.
+2026-10-05 16:52:13.429+03:00[34:44.758] P23592T23576     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 16:52:13.435+03:00[34:44.762] P23592T26468 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 26468
+2026-10-05 16:58:52.081+03:00[41:23.411] P10752T22676 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 16:58:52.081+03:00[41:23.411] P10752T22676     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 39ms after process creation.
+2026-10-05 16:58:52.081+03:00[41:23.411] P10752T22676     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 16:58:52.092+03:00[41:23.424] P10752T22676 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 16:58:52.092+03:00[41:23.424] P10752T22676 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 16:58:52.092+03:00[41:23.424] P10752T22676     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 55ms after process creation.
+2026-10-05 16:58:52.092+03:00[41:23.424] P10752T22676     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 16:58:52.092+03:00[41:23.424] P10752T22676     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 16:58:52.101+03:00[41:23.428] P10752T28896 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 28896
+2026-10-05 17:00:52.143+03:00[43:23.476] P21260T10188 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 17:00:52.143+03:00[43:23.476] P21260T10188     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 41ms after process creation.
+2026-10-05 17:00:52.150+03:00[43:23.476] P21260T10188     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 17:00:52.160+03:00[43:23.486] P21260T10188 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 17:00:52.160+03:00[43:23.487] P21260T10188 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 17:00:52.160+03:00[43:23.487] P21260T10188     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 54ms after process creation.
+2026-10-05 17:00:52.160+03:00[43:23.487] P21260T10188     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 17:00:52.160+03:00[43:23.487] P21260T10188     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 17:00:52.162+03:00[43:23.492] P21260T22412 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 22412
+2026-10-05 17:01:52.331+03:00[44:23.661] P30488T25656 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 17:01:52.331+03:00[44:23.661] P30488T25656     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 42ms after process creation.
+2026-10-05 17:01:52.331+03:00[44:23.661] P30488T25656     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 17:01:52.344+03:00[44:23.672] P30488T25656 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 17:01:52.346+03:00[44:23.673] P30488T25656 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 17:01:52.346+03:00[44:23.673] P30488T25656     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 55ms after process creation.
+2026-10-05 17:01:52.346+03:00[44:23.673] P30488T25656     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 17:01:52.346+03:00[44:23.673] P30488T25656     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 17:01:52.350+03:00[44:23.678] P30488T30100 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 30100
+2026-10-05 17:01:53.991+03:00[44:25.322] P17664T24860 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 17:01:53.991+03:00[44:25.322] P17664T24860     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 41ms after process creation.
+2026-10-05 17:01:53.991+03:00[44:25.323] P17664T24860     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 17:01:54.006+03:00[44:25.333] P17664T24860 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 17:01:54.006+03:00[44:25.334] P17664T24860 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 17:01:54.006+03:00[44:25.334] P17664T24860     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 50ms after process creation.
+2026-10-05 17:01:54.006+03:00[44:25.334] P17664T24860     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 15ms.
+2026-10-05 17:01:54.006+03:00[44:25.334] P17664T24860     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 17:01:54.010+03:00[44:25.338] P17664T17040 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 17040
+2026-10-05 17:02:27.330+03:00[44:58.658] P15204T22236 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 17:02:27.330+03:00[44:58.658] P15204T22236     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 33ms after process creation.
+2026-10-05 17:02:27.330+03:00[44:58.658] P15204T22236     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 17:02:27.340+03:00[44:58.669] P15204T22236 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 17:02:27.340+03:00[44:58.670] P15204T22236 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 17:02:27.340+03:00[44:58.670] P15204T22236     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 53ms after process creation.
+2026-10-05 17:02:27.340+03:00[44:58.670] P15204T22236     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 17:02:27.340+03:00[44:58.670] P15204T22236     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 17:02:27.340+03:00[44:58.674] P15204T27108 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 27108
+2026-10-05 17:10:38.813+03:00[53:10.140] P08868T25404 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 17:10:38.813+03:00[53:10.140] P08868T25404     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 41ms after process creation.
+2026-10-05 17:10:38.813+03:00[53:10.140] P08868T25404     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 17:10:38.823+03:00[53:10.150] P08868T25404 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 17:10:38.823+03:00[53:10.151] P08868T25404 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 17:10:38.823+03:00[53:10.151] P08868T25404     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 53ms after process creation.
+2026-10-05 17:10:38.823+03:00[53:10.151] P08868T25404     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 17:10:38.823+03:00[53:10.151] P08868T25404     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 17:10:38.828+03:00[53:10.155] P08868T23068 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 23068
+2026-10-05 17:25:57.801+03:00[08:29.129] P29456T28684 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 17:25:57.801+03:00[08:29.129] P29456T28684     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 43ms after process creation.
+2026-10-05 17:25:57.801+03:00[08:29.129] P29456T28684     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 17:25:57.814+03:00[08:29.141] P29456T28684 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 17:25:57.814+03:00[08:29.141] P29456T28684 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 17:25:57.814+03:00[08:29.141] P29456T28684     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 61ms after process creation.
+2026-10-05 17:25:57.814+03:00[08:29.141] P29456T28684     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 17:25:57.814+03:00[08:29.142] P29456T28684     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 17:25:57.814+03:00[08:29.146] P29456T29740 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 29740
+2026-10-05 17:32:04.238+03:00[14:35.566] P22440T19072 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 17:32:04.238+03:00[14:35.566] P22440T19072     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 101ms after process creation.
+2026-10-05 17:32:04.238+03:00[14:35.567] P22440T19072     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 17:32:04.258+03:00[14:35.585] P22440T19072 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 17:32:04.258+03:00[14:35.585] P22440T19072 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 17:32:04.258+03:00[14:35.586] P22440T19072     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 126ms after process creation.
+2026-10-05 17:32:04.258+03:00[14:35.586] P22440T19072     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 15ms.
+2026-10-05 17:32:04.258+03:00[14:35.586] P22440T19072     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 17:32:04.264+03:00[14:35.592] P22440T27096 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 27096
+2026-10-05 17:33:31.811+03:00[16:03.138] P04012T17900 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 17:33:31.811+03:00[16:03.139] P04012T17900     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 64ms after process creation.
+2026-10-05 17:33:31.811+03:00[16:03.140] P04012T17900     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 17:33:31.820+03:00[16:03.153] P04012T17900 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 17:33:31.820+03:00[16:03.153] P04012T17900 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 17:33:31.820+03:00[16:03.153] P04012T17900     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 81ms after process creation.
+2026-10-05 17:33:31.820+03:00[16:03.153] P04012T17900     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 17:33:31.820+03:00[16:03.154] P04012T17900     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 17:33:31.831+03:00[16:03.159] P04012T24656 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 24656
+2026-10-05 18:05:02.947+03:00[47:34.275] P26932T07288 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 18:05:02.947+03:00[47:34.275] P26932T07288     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 44ms after process creation.
+2026-10-05 18:05:02.947+03:00[47:34.275] P26932T07288     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 18:05:02.955+03:00[47:34.283] P26932T07288 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 18:05:02.955+03:00[47:34.283] P26932T07288 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 18:05:02.955+03:00[47:34.283] P26932T07288     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 53ms after process creation.
+2026-10-05 18:05:02.955+03:00[47:34.283] P26932T07288     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 18:05:02.955+03:00[47:34.283] P26932T07288     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 18:05:02.960+03:00[47:34.287] P26932T29792 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 29792
+2026-10-05 18:06:37.427+03:00[49:08.766] P16628T17272 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 18:06:37.427+03:00[49:08.767] P16628T17272     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 29ms after process creation.
+2026-10-05 18:06:37.427+03:00[49:08.767] P16628T17272     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 18:06:37.443+03:00[49:08.774] P16628T17272 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 18:06:37.443+03:00[49:08.774] P16628T17272 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 18:06:37.443+03:00[49:08.774] P16628T17272     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 45ms after process creation.
+2026-10-05 18:06:37.443+03:00[49:08.774] P16628T17272     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 18:06:37.443+03:00[49:08.775] P16628T17272     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 18:06:37.443+03:00[49:08.778] P16628T03848 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 3848
+2026-10-05 18:51:08.431+03:00[33:39.769] P22068T19412 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 18:51:08.431+03:00[33:39.769] P22068T19412     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 30ms after process creation.
+2026-10-05 18:51:08.431+03:00[33:39.770] P22068T19412     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 18:51:08.447+03:00[33:39.777] P22068T19412 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 18:51:08.447+03:00[33:39.777] P22068T19412 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 18:51:08.447+03:00[33:39.777] P22068T19412     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 46ms after process creation.
+2026-10-05 18:51:08.447+03:00[33:39.777] P22068T19412     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 18:51:08.447+03:00[33:39.778] P22068T19412     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 18:51:08.455+03:00[33:39.781] P22068T19848 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 19848
+2026-10-05 18:55:29.983+03:00[38:01.309] P20980T11728 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 18:55:29.983+03:00[38:01.310] P20980T11728     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 48ms after process creation.
+2026-10-05 18:55:29.983+03:00[38:01.310] P20980T11728     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 18:55:29.991+03:00[38:01.318] P20980T11728 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 18:55:29.991+03:00[38:01.318] P20980T11728 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 18:55:29.991+03:00[38:01.319] P20980T11728     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 59ms after process creation.
+2026-10-05 18:55:29.991+03:00[38:01.319] P20980T11728     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 16ms.
+2026-10-05 18:55:29.991+03:00[38:01.319] P20980T11728     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 18:55:29.995+03:00[38:01.322] P20980T03128 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 3128
+2026-10-05 18:56:28.474+03:00[38:59.808] P01924T27608 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 18:56:28.474+03:00[38:59.808] P01924T27608     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 41ms after process creation.
+2026-10-05 18:56:28.474+03:00[38:59.808] P01924T27608     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 18:56:28.474+03:00[38:59.816] P01924T27608 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 18:56:28.474+03:00[38:59.816] P01924T27608 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 18:56:28.474+03:00[38:59.816] P01924T27608     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 41ms after process creation.
+2026-10-05 18:56:28.474+03:00[38:59.816] P01924T27608     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 18:56:28.474+03:00[38:59.816] P01924T27608     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 18:56:28.490+03:00[38:59.819] P01924T27216 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 27216
+2026-10-05 18:57:55.954+03:00[40:27.291] P18112T18648 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 18:57:55.954+03:00[40:27.291] P18112T18648     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 40ms after process creation.
+2026-10-05 18:57:55.954+03:00[40:27.291] P18112T18648     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 18:57:55.972+03:00[40:27.299] P18112T18648 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 18:57:55.972+03:00[40:27.299] P18112T18648 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 18:57:55.972+03:00[40:27.299] P18112T18648     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 56ms after process creation.
+2026-10-05 18:57:55.972+03:00[40:27.299] P18112T18648     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 18:57:55.972+03:00[40:27.300] P18112T18648     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 18:57:55.974+03:00[40:27.303] P18112T20232 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 20232
+2026-10-05 19:32:31.460+03:00[15:02.787] P01448T28972 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 19:32:31.460+03:00[15:02.787] P01448T28972     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 46ms after process creation.
+2026-10-05 19:32:31.460+03:00[15:02.787] P01448T28972     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 19:32:31.468+03:00[15:02.796] P01448T28972 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 19:32:31.468+03:00[15:02.796] P01448T28972 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 19:32:31.468+03:00[15:02.796] P01448T28972     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 57ms after process creation.
+2026-10-05 19:32:31.468+03:00[15:02.796] P01448T28972     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 19:32:31.468+03:00[15:02.796] P01448T28972     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 19:32:31.468+03:00[15:02.800] P01448T28900 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 28900
+2026-10-05 19:35:18.496+03:00[17:49.824] P23856T27656 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 19:35:18.496+03:00[17:49.825] P23856T27656     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 36ms after process creation.
+2026-10-05 19:35:18.498+03:00[17:49.825] P23856T27656     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 19:35:18.502+03:00[17:49.832] P23856T27656 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 19:35:18.502+03:00[17:49.832] P23856T27656 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 19:35:18.502+03:00[17:49.833] P23856T27656     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 44ms after process creation.
+2026-10-05 19:35:18.502+03:00[17:49.833] P23856T27656     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 19:35:18.502+03:00[17:49.833] P23856T27656     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 19:35:18.509+03:00[17:49.836] P23856T19940 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 19940
+2026-10-05 19:36:18.410+03:00[18:49.738] P26096T12008 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 19:36:18.410+03:00[18:49.738] P26096T12008     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 35ms after process creation.
+2026-10-05 19:36:18.410+03:00[18:49.739] P26096T12008     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 19:36:18.417+03:00[18:49.746] P26096T12008 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 19:36:18.417+03:00[18:49.746] P26096T12008 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 19:36:18.417+03:00[18:49.746] P26096T12008     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 49ms after process creation.
+2026-10-05 19:36:18.417+03:00[18:49.746] P26096T12008     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 19:36:18.417+03:00[18:49.746] P26096T12008     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 19:36:18.422+03:00[18:49.750] P26096T25008 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 25008
+2026-10-05 19:37:07.701+03:00[19:39.028] P30084T15228 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 19:37:07.701+03:00[19:39.028] P30084T15228     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 35ms after process creation.
+2026-10-05 19:37:07.701+03:00[19:39.029] P30084T15228     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 19:37:07.709+03:00[19:39.036] P30084T15228 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 19:37:07.709+03:00[19:39.037] P30084T15228 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 19:37:07.709+03:00[19:39.037] P30084T15228     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 46ms after process creation.
+2026-10-05 19:37:07.709+03:00[19:39.037] P30084T15228     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 15ms.
+2026-10-05 19:37:07.709+03:00[19:39.037] P30084T15228     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 19:37:07.714+03:00[19:39.041] P30084T29952 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 29952
+2026-10-05 19:42:38.458+03:00[25:09.785] P06168T12280 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-05 19:42:38.458+03:00[25:09.785] P06168T12280     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 34ms after process creation.
+2026-10-05 19:42:38.458+03:00[25:09.785] P06168T12280     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-05 19:42:38.467+03:00[25:09.793] P06168T12280 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-05 19:42:38.467+03:00[25:09.794] P06168T12280 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-05 19:42:38.467+03:00[25:09.794] P06168T12280     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 44ms after process creation.
+2026-10-05 19:42:38.467+03:00[25:09.794] P06168T12280     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-05 19:42:38.467+03:00[25:09.794] P06168T12280     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-05 19:42:38.468+03:00[25:09.797] P06168T13036 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 13036
+2026-10-06 15:43:49.823+03:00[26:21.150] P05320T17816 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 15:43:49.825+03:00[26:21.152] P05320T17816     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 43ms after process creation.
+2026-10-06 15:43:49.826+03:00[26:21.153] P05320T17816     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 15:43:49.831+03:00[26:21.162] P05320T17816 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 15:43:49.831+03:00[26:21.162] P05320T17816 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 15:43:49.831+03:00[26:21.162] P05320T17816     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 62ms after process creation.
+2026-10-06 15:43:49.831+03:00[26:21.162] P05320T17816     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 15:43:49.836+03:00[26:21.162] P05320T17816     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 15:43:49.836+03:00[26:21.166] P05320T29072 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 29072
+2026-10-06 15:43:51.336+03:00[26:22.663] P21668T20444 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 15:43:51.336+03:00[26:22.663] P21668T20444     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 52ms after process creation.
+2026-10-06 15:43:51.336+03:00[26:22.663] P21668T20444     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 15:43:51.343+03:00[26:22.672] P21668T20444 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 15:43:51.343+03:00[26:22.672] P21668T20444 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 15:43:51.343+03:00[26:22.672] P21668T20444     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 64ms after process creation.
+2026-10-06 15:43:51.343+03:00[26:22.672] P21668T20444     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 15:43:51.343+03:00[26:22.672] P21668T20444     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 15:43:51.343+03:00[26:22.676] P21668T14980 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 14980
+2026-10-06 15:43:58.944+03:00[26:30.271] P22960T22128 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 15:43:58.944+03:00[26:30.272] P22960T22128     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 62ms after process creation.
+2026-10-06 15:43:58.944+03:00[26:30.272] P22960T22128     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 15:43:58.962+03:00[26:30.289] P22960T22128 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 15:43:58.962+03:00[26:30.290] P22960T22128 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 15:43:58.962+03:00[26:30.290] P22960T22128     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 86ms after process creation.
+2026-10-06 15:43:58.962+03:00[26:30.290] P22960T22128     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 15:43:58.962+03:00[26:30.290] P22960T22128     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 15:43:58.971+03:00[26:30.298] P22960T28992 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 28992
+2026-10-06 15:44:23.193+03:00[26:54.520] P28280T19980 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 15:44:23.193+03:00[26:54.521] P28280T19980     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 45ms after process creation.
+2026-10-06 15:44:23.193+03:00[26:54.521] P28280T19980     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 15:44:23.205+03:00[26:54.531] P28280T19980 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 15:44:23.205+03:00[26:54.532] P28280T19980 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 15:44:23.205+03:00[26:54.532] P28280T19980     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 57ms after process creation.
+2026-10-06 15:44:23.205+03:00[26:54.532] P28280T19980     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 15:44:23.205+03:00[26:54.532] P28280T19980     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 15:44:23.205+03:00[26:54.536] P28280T06056 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 6056
+2026-10-06 15:44:46.103+03:00[27:17.429] P11200T22236 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 15:44:46.103+03:00[27:17.429] P11200T22236     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 47ms after process creation.
+2026-10-06 15:44:46.103+03:00[27:17.430] P11200T22236     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 15:44:46.115+03:00[27:17.441] P11200T22236 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 15:44:46.115+03:00[27:17.442] P11200T22236 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 15:44:46.115+03:00[27:17.442] P11200T22236     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 60ms after process creation.
+2026-10-06 15:44:46.115+03:00[27:17.442] P11200T22236     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 15:44:46.115+03:00[27:17.442] P11200T22236     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 15:44:46.115+03:00[27:17.446] P11200T22596 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 22596
+2026-10-06 15:45:32.706+03:00[28:04.033] P26692T31380 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 15:45:32.707+03:00[28:04.033] P26692T31380     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 69ms after process creation.
+2026-10-06 15:45:32.707+03:00[28:04.033] P26692T31380     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 15:45:32.716+03:00[28:04.043] P26692T31380 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 15:45:32.716+03:00[28:04.043] P26692T31380 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 15:45:32.716+03:00[28:04.043] P26692T31380     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 80ms after process creation.
+2026-10-06 15:45:32.716+03:00[28:04.043] P26692T31380     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 15:45:32.716+03:00[28:04.043] P26692T31380     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 15:45:32.721+03:00[28:04.047] P26692T31632 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 31632
+2026-10-06 15:47:43.341+03:00[30:14.667] P17760T04416 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 15:47:43.341+03:00[30:14.667] P17760T04416     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 35ms after process creation.
+2026-10-06 15:47:43.341+03:00[30:14.668] P17760T04416     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 15:47:43.343+03:00[30:14.675] P17760T04416 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 15:47:43.343+03:00[30:14.676] P17760T04416 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 15:47:43.343+03:00[30:14.676] P17760T04416     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 42ms after process creation.
+2026-10-06 15:47:43.343+03:00[30:14.676] P17760T04416     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 15:47:43.343+03:00[30:14.676] P17760T04416     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 15:47:43.351+03:00[30:14.679] P17760T06132 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 6132
+2026-10-06 16:12:21.493+03:00[54:52.819] P01324T17204 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 16:12:21.493+03:00[54:52.820] P01324T17204     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 46ms after process creation.
+2026-10-06 16:12:21.493+03:00[54:52.820] P01324T17204     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 16:12:21.499+03:00[54:52.828] P01324T17204 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 16:12:21.499+03:00[54:52.828] P01324T17204 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 16:12:21.499+03:00[54:52.828] P01324T17204     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 58ms after process creation.
+2026-10-06 16:12:21.499+03:00[54:52.828] P01324T17204     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 16:12:21.499+03:00[54:52.829] P01324T17204     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 16:12:21.506+03:00[54:52.832] P01324T13084 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 13084
+2026-10-06 16:21:37.434+03:00[04:08.761] P17664T27964 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 16:21:37.435+03:00[04:08.762] P17664T27964     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 89ms after process creation.
+2026-10-06 16:21:37.435+03:00[04:08.762] P17664T27964     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 16:21:37.445+03:00[04:08.772] P17664T27964 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 16:21:37.445+03:00[04:08.772] P17664T27964 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 16:21:37.445+03:00[04:08.772] P17664T27964     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 102ms after process creation.
+2026-10-06 16:21:37.445+03:00[04:08.772] P17664T27964     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 16ms.
+2026-10-06 16:21:37.445+03:00[04:08.772] P17664T27964     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 16:21:37.448+03:00[04:08.776] P17664T10464 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 10464
+2026-10-06 17:07:44.411+03:00[50:15.739] P19812T17876 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 17:07:44.413+03:00[50:15.740] P19812T17876     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 53ms after process creation.
+2026-10-06 17:07:44.413+03:00[50:15.740] P19812T17876     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 17:07:44.422+03:00[50:15.749] P19812T17876 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 17:07:44.422+03:00[50:15.749] P19812T17876 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 17:07:44.422+03:00[50:15.749] P19812T17876     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 64ms after process creation.
+2026-10-06 17:07:44.422+03:00[50:15.749] P19812T17876     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 17:07:44.423+03:00[50:15.750] P19812T17876     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 17:07:44.427+03:00[50:15.753] P19812T03352 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 3352
+2026-10-06 17:07:45.879+03:00[50:17.206] P28444T06940 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 17:07:45.879+03:00[50:17.206] P28444T06940     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 49ms after process creation.
+2026-10-06 17:07:45.879+03:00[50:17.206] P28444T06940     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 17:07:45.888+03:00[50:17.215] P28444T06940 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 17:07:45.888+03:00[50:17.215] P28444T06940 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 17:07:45.888+03:00[50:17.215] P28444T06940     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 59ms after process creation.
+2026-10-06 17:07:45.888+03:00[50:17.215] P28444T06940     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 17:07:45.888+03:00[50:17.215] P28444T06940     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 17:07:45.892+03:00[50:17.219] P28444T04012 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 4012
+2026-10-06 17:08:09.275+03:00[50:40.605] P10312T22140 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 17:08:09.275+03:00[50:40.605] P10312T22140     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 46ms after process creation.
+2026-10-06 17:08:09.275+03:00[50:40.606] P10312T22140     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 17:08:09.288+03:00[50:40.616] P10312T22140 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 17:08:09.290+03:00[50:40.616] P10312T22140 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 17:08:09.290+03:00[50:40.616] P10312T22140     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 57ms after process creation.
+2026-10-06 17:08:09.290+03:00[50:40.616] P10312T22140     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 16ms.
+2026-10-06 17:08:09.290+03:00[50:40.617] P10312T22140     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 17:08:09.290+03:00[50:40.620] P10312T32712 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 32712
+2026-10-06 17:08:28.689+03:00[51:00.016] P23420T31560 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 17:08:28.689+03:00[51:00.016] P23420T31560     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 48ms after process creation.
+2026-10-06 17:08:28.690+03:00[51:00.016] P23420T31560     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 17:08:28.699+03:00[51:00.026] P23420T31560 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 17:08:28.699+03:00[51:00.026] P23420T31560 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 17:08:28.699+03:00[51:00.026] P23420T31560     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 63ms after process creation.
+2026-10-06 17:08:28.699+03:00[51:00.026] P23420T31560     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 17:08:28.700+03:00[51:00.026] P23420T31560     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 17:08:28.703+03:00[51:00.029] P23420T25816 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 25816
+2026-10-06 17:08:30.252+03:00[51:01.579] P19000T15296 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 17:08:30.252+03:00[51:01.579] P19000T15296     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 46ms after process creation.
+2026-10-06 17:08:30.252+03:00[51:01.579] P19000T15296     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 17:08:30.266+03:00[51:01.592] P19000T15296 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 17:08:30.266+03:00[51:01.592] P19000T15296 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 17:08:30.266+03:00[51:01.592] P19000T15296     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 61ms after process creation.
+2026-10-06 17:08:30.266+03:00[51:01.592] P19000T15296     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 17:08:30.266+03:00[51:01.593] P19000T15296     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 17:08:30.270+03:00[51:01.596] P19000T30816 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 30816
+2026-10-06 17:09:06.886+03:00[51:38.217] P27860T28348 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 17:09:06.886+03:00[51:38.217] P27860T28348     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 79ms after process creation.
+2026-10-06 17:09:06.886+03:00[51:38.218] P27860T28348     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 17:09:06.900+03:00[51:38.229] P27860T28348 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 17:09:06.900+03:00[51:38.229] P27860T28348 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 17:09:06.900+03:00[51:38.229] P27860T28348     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 93ms after process creation.
+2026-10-06 17:09:06.900+03:00[51:38.229] P27860T28348     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 17:09:06.900+03:00[51:38.229] P27860T28348     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 17:09:06.905+03:00[51:38.233] P27860T08076 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 8076
+2026-10-06 18:12:16.662+03:00[54:47.994] P26980T30196 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 18:12:16.662+03:00[54:47.995] P26980T30196     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 73ms after process creation.
+2026-10-06 18:12:16.662+03:00[54:47.996] P26980T30196     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 18:12:16.678+03:00[54:48.005] P26980T30196 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 18:12:16.678+03:00[54:48.006] P26980T30196 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 18:12:16.678+03:00[54:48.006] P26980T30196     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 87ms after process creation.
+2026-10-06 18:12:16.678+03:00[54:48.006] P26980T30196     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 15ms.
+2026-10-06 18:12:16.678+03:00[54:48.006] P26980T30196     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 18:12:16.678+03:00[54:48.011] P26980T29796 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 29796
+2026-10-06 18:15:14.222+03:00[57:45.549] P19740T21312 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 18:15:14.222+03:00[57:45.550] P19740T21312     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 58ms after process creation.
+2026-10-06 18:15:14.222+03:00[57:45.550] P19740T21312     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 18:15:14.226+03:00[57:45.559] P19740T21312 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 18:15:14.226+03:00[57:45.559] P19740T21312 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 18:15:14.232+03:00[57:45.559] P19740T21312     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 64ms after process creation.
+2026-10-06 18:15:14.232+03:00[57:45.559] P19740T21312     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 18:15:14.232+03:00[57:45.559] P19740T21312     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 18:15:14.236+03:00[57:45.563] P19740T12976 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 12976
+2026-10-06 18:16:27.568+03:00[58:58.901] P26384T31308 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 18:16:27.568+03:00[58:58.901] P26384T31308     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 61ms after process creation.
+2026-10-06 18:16:27.568+03:00[58:58.901] P26384T31308     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 18:16:27.579+03:00[58:58.909] P26384T31308 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 18:16:27.579+03:00[58:58.909] P26384T31308 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 18:16:27.579+03:00[58:58.909] P26384T31308     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 71ms after process creation.
+2026-10-06 18:16:27.579+03:00[58:58.909] P26384T31308     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 18:16:27.579+03:00[58:58.909] P26384T31308     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 18:16:27.586+03:00[58:58.913] P26384T24820 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 24820
+2026-10-06 18:17:12.186+03:00[59:43.514] P31632T31464 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 18:17:12.186+03:00[59:43.514] P31632T31464     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 41ms after process creation.
+2026-10-06 18:17:12.186+03:00[59:43.514] P31632T31464     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 18:17:12.194+03:00[59:43.523] P31632T31464 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 18:17:12.197+03:00[59:43.523] P31632T31464 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 18:17:12.197+03:00[59:43.523] P31632T31464     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 53ms after process creation.
+2026-10-06 18:17:12.197+03:00[59:43.523] P31632T31464     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 16ms.
+2026-10-06 18:17:12.197+03:00[59:43.523] P31632T31464     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 18:17:12.198+03:00[59:43.526] P31632T31916 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 31916
+2026-10-06 18:18:31.265+03:00[01:02.606] P29912T31884 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 18:18:31.265+03:00[01:02.606] P29912T31884     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 41ms after process creation.
+2026-10-06 18:18:31.265+03:00[01:02.607] P29912T31884     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 18:18:31.286+03:00[01:02.614] P29912T31884 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 18:18:31.286+03:00[01:02.614] P29912T31884 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 18:18:31.286+03:00[01:02.614] P29912T31884     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 62ms after process creation.
+2026-10-06 18:18:31.286+03:00[01:02.614] P29912T31884     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 18:18:31.286+03:00[01:02.614] P29912T31884     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 18:18:31.286+03:00[01:02.618] P29912T32384 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 32384
+2026-10-06 18:20:10.834+03:00[02:42.161] P21772T22268 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 18:20:10.834+03:00[02:42.161] P21772T22268     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 26ms after process creation.
+2026-10-06 18:20:10.834+03:00[02:42.161] P21772T22268     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 18:20:10.836+03:00[02:42.169] P21772T22268 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 18:20:10.836+03:00[02:42.169] P21772T22268 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 18:20:10.836+03:00[02:42.169] P21772T22268     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 44ms after process creation.
+2026-10-06 18:20:10.836+03:00[02:42.169] P21772T22268     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 18:20:10.836+03:00[02:42.169] P21772T22268     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 18:20:10.836+03:00[02:42.172] P21772T20220 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 20220
+2026-10-06 18:34:15.686+03:00[16:47.012] P32412T30124 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 18:34:15.686+03:00[16:47.013] P32412T30124     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 96ms after process creation.
+2026-10-06 18:34:15.687+03:00[16:47.013] P32412T30124     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 18:34:15.696+03:00[16:47.023] P32412T30124 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 18:34:15.696+03:00[16:47.023] P32412T30124 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 18:34:15.696+03:00[16:47.023] P32412T30124     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 108ms after process creation.
+2026-10-06 18:34:15.696+03:00[16:47.023] P32412T30124     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 18:34:15.696+03:00[16:47.023] P32412T30124     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 18:34:15.700+03:00[16:47.027] P32412T21136 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 21136
+2026-10-06 18:34:21.857+03:00[16:53.187] P03740T24868 EVT powershell:BrShim Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrShim.dll' build 4.4.33.1019 amd64
+2026-10-06 18:34:21.857+03:00[16:53.188] P03740T24868     powershell:BrShim BrShim.cpp<218>:InstallAfterInitUnguarded(): BrShim 4.4.33.1019 loaded 59ms after process creation.
+2026-10-06 18:34:21.857+03:00[16:53.188] P03740T24868     powershell:BrShim BrHookLoad.cpp<45>:LoadBrHook(): Loading: C:\Program Files\HP\Sure Click\servers\BrHook.dll
+2026-10-06 18:34:21.868+03:00[16:53.196] P03740T24868 EVT powershell:BrHook Logs.cpp<330>:InitLogging(): Start process logging at level 0 for 'powershell.exe', 'BrHook.dll' build 4.4.33.1019 amd64
+2026-10-06 18:34:21.870+03:00[16:53.196] P03740T24868 dbg powershell:BrHook settings.cpp<588>:GetActiveVersionWithPath(): - Found active version from CurrentVersion key 4.4.33.1019
+2026-10-06 18:34:21.870+03:00[16:53.196] P03740T24868     powershell:BrHook BrHook.cpp<1884>:DllMain(): BrHook loaded 69ms after process creation.
+2026-10-06 18:34:21.870+03:00[16:53.196] P03740T24868     powershell:BrHook BrHook.cpp<1897>:DllMain(): Attach completed in 0ms.
+2026-10-06 18:34:21.870+03:00[16:53.196] P03740T24868     powershell:BrHook BrHook.cpp<1782>:InitHooks(): Not initializing hooks because Bromium/Untrusted is disabled
+2026-10-06 18:34:21.870+03:00[16:53.200] P03740T30624 trc powershell:BrHook observer_thread.cpp<64>:RealThreadMain(): Registry Watcher Thread: 30624
