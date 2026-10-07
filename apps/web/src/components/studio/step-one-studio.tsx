@@ -50,7 +50,7 @@ type Snapshot = {
   selectedId: string | null;
   layers: { layer: StudioLayer; pixels: ReturnType<FabricImage['getElement']>; mask?: HTMLCanvasElement;
     crop: LayerCrop;
-    values: Pick<FabricImage, 'left' | 'top' | 'scaleX' | 'scaleY' | 'angle' | 'opacity' | 'visible' | 'globalCompositeOperation' | 'flipX' | 'flipY'> }[];
+    values: Pick<FabricImage, 'left' | 'top' | 'scaleX' | 'scaleY' | 'angle' | 'opacity' | 'visible' | 'globalCompositeOperation' | 'flipX' | 'flipY' | 'lockMovementX' | 'lockMovementY' | 'lockRotation' | 'lockScalingX' | 'lockScalingY' | 'hasControls' | 'selectable' | 'evented'> }[];
 };
 
 function copyPixels(source: HTMLCanvasElement): HTMLCanvasElement {
@@ -89,6 +89,37 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   const inputRef = useRef<HTMLInputElement>(null);
   const baseReadyRef = useRef(false);
   const [layers, setLayers] = useState<StudioLayer[]>([]);
+  const [showAssetModal, setShowAssetModal] = useState(false);
+  const assetLoadingRef = useRef(false);
+  const [assetLoading, setAssetLoading] = useState(false);
+  const STUDIO_PRESET_ASSETS = [
+    { id: 'preset-temple', name: 'Forgotten Temple', url: '/artwork/forgotten-temple.png' },
+    { id: 'preset-cyberpunk', name: 'Cyberpunk District', url: '/artwork/cyberpunk-district-recon.jpg' },
+    { id: 'preset-desert', name: 'Desert Sentinel', url: '/artwork/desert-sentinel.jpg' },
+    { id: 'preset-memory', name: 'Memory Architecture', url: '/artwork/memory-architecture.jpg' },
+    { id: 'preset-obsidian', name: 'Obsidian Product Plate', url: '/artwork/obsidian-product.jpg' },
+  ];
+
+  async function addPresetFromLibrary(name: string, url: string) {
+    const canvas = canvasRef.current;
+    if (!canvas || !baseReadyRef.current || assetLoadingRef.current) return;
+    const epoch = editEpochRef.current;
+    assetLoadingRef.current = true;
+    setAssetLoading(true);
+    try {
+      const image = await decodeImage(url);
+      if (canvasRef.current !== canvas || epoch !== editEpochRef.current) return;
+      insertImage(canvas, image, name, false);
+      setShowAssetModal(false);
+      setError(null);
+    } catch (cause) {
+      reportError(cause);
+    } finally {
+      assetLoadingRef.current = false;
+      setAssetLoading(false);
+    }
+  }
+
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [title, setTitle] = useState(projectTitle);
   const [error, setError] = useState<string | null>(null);
@@ -298,7 +329,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         mask: mask ? copyPixels(mask) : undefined, crop: { ...(object.studioCrop ?? emptyCrop()) },
         values: { left: object.left, top: object.top, scaleX: object.scaleX, scaleY: object.scaleY,
           angle: object.angle, opacity: object.opacity, visible: object.visible,
-          globalCompositeOperation: object.globalCompositeOperation, flipX: object.flipX, flipY: object.flipY } };
+          globalCompositeOperation: object.globalCompositeOperation, flipX: object.flipX, flipY: object.flipY, lockMovementX: object.lockMovementX, lockMovementY: object.lockMovementY, lockRotation: object.lockRotation, lockScalingX: object.lockScalingX, lockScalingY: object.lockScalingY, hasControls: object.hasControls, selectable: object.selectable, evented: object.evented } };
     }) };
   }
 
@@ -331,7 +362,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     }
     const restored = snapshot.layers.map(entry => entry.layer);
     const selected = restored.find(layer => layer.id === snapshot.selectedId);
-    if (selected?.object.visible) canvas.setActiveObject(selected.object);
+    if (selected?.object.visible && selected.object.selectable) canvas.setActiveObject(selected.object);
     setLayers(restored);
     setSelectedLayerId(selected?.id ?? null);
     canvas.requestRenderAll();
@@ -475,7 +506,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
           if (canvasRef.current !== canvas) return;
           restoredLayers.forEach(layer => canvas.add(layer.object));
           const selected = restoredLayers.find(layer => layer.id === storedManifest.selectedLayerId);
-          if (selected?.object.visible) canvas.setActiveObject(selected.object);
+          if (selected?.object.visible && selected.object.selectable) canvas.setActiveObject(selected.object);
           setSelectedLayerId(selected?.id ?? null);
           setLayers(restoredLayers);
           setTitle(storedManifest.title);
@@ -641,9 +672,160 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     recordHistory();
     if (canvas.getActiveObject() === layer.object) canvas.discardActiveObject();
     canvas.remove(layer.object);
+    masksRef.current.delete(layer.id);
     setLayers(current => current.filter(currentLayer => currentLayer.id !== layer.id));
     setSelectedLayerId(current => current === layer.id ? null : current);
     canvas.requestRenderAll();
+  }
+
+  const clipboardLayerRef = useRef<{ object: LayerImage; source: HTMLImageElement; name: string; crop: LayerCrop; mask?: HTMLCanvasElement } | null>(null);
+
+  function cloneLayer(source: NonNullable<typeof clipboardLayerRef.current>, paste = false) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    try {
+      const original = source.object;
+      const pixels = original.getElement();
+      const object = new FabricImage(pixels instanceof HTMLCanvasElement ? copyPixels(pixels) : pixels, {
+        width: original.width, height: original.height, scaleX: original.scaleX, scaleY: original.scaleY,
+        angle: original.angle, flipX: original.flipX, flipY: original.flipY, opacity: original.opacity,
+        skewX: original.skewX, skewY: original.skewY, originX: original.originX, originY: original.originY,
+        cropX: original.cropX, cropY: original.cropY, visible: original.visible,
+        globalCompositeOperation: original.globalCompositeOperation,
+      }) as LayerImage;
+      const id = crypto.randomUUID();
+      object.studioLayerId = id;
+      object.set({ left: (source.object.left ?? 0) + 24, top: (source.object.top ?? 0) + 24,
+        lockMovementX: false, lockMovementY: false, lockRotation: false,
+        lockScalingX: false, lockScalingY: false, hasControls: true, selectable: true, evented: true });
+      applyLayerCrop(object, source.crop);
+      object.setControlsVisibility({ mt: false, mb: false, ml: false, mr: false, mtr: true });
+      if (paste) {
+        const center = canvas.getVpCenter();
+        const bounds = object.getBoundingRect();
+        object.set({ left: object.left + center.x - bounds.left - bounds.width / 2,
+          top: object.top + center.y - bounds.top - bounds.height / 2 });
+      }
+      object.setCoords();
+      recordHistory();
+      if (source.mask) masksRef.current.set(id, copyPixels(source.mask));
+      canvas.add(object);
+      canvas.setActiveObject(object);
+      setLayers(current => [...current, { id, name: `${source.name} (${paste ? 'Paste' : 'Copy'})`,
+        object, originalSource: source.source, isBase: false }]);
+      setSelectedLayerId(id);
+      setTool('move');
+      canvas.requestRenderAll();
+    } catch (cause) { reportError(cause); }
+  }
+
+  async function handleAutoCutout(layer: StudioLayer) {
+    const canvas = canvasRef.current;
+    if (!canvas || layer.isBase || cutoutBusyRef.current) return;
+    const epoch = editEpochRef.current;
+    cutoutBusyRef.current = true;
+    setCutoutProcessing('background');
+    setCutoutNotice(null);
+    setTool('move');
+    try {
+      const result = removeSolidBackground(layer.originalSource);
+      if (!result.success) {
+        throw new Error('Unable to automatically isolate subject. Use the Eraser tool for complex backgrounds.');
+      }
+      const transparentDataUrl = result.canvas.toDataURL('image/png');
+      const transparentImg = await decodeImage(transparentDataUrl);
+      if (canvasRef.current !== canvas || editEpochRef.current !== epoch || !canvas.getObjects().includes(layer.object)) return;
+      recordHistory();
+      layer.object.setElement(transparentImg);
+      layer.object.set('dirty', true);
+      layer.object.setCoords();
+      setLayers(current => [...current]);
+      canvas.requestRenderAll();
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Cutout failed');
+    } finally {
+      cutoutBusyRef.current = false;
+      setCutoutProcessing(null);
+    }
+  }
+  function duplicateLayer(layer: StudioLayer) {
+    const canvas = canvasRef.current;
+    if (!canvas || layer.isBase) return;
+    recordHistory();
+
+    // Use the active layer's in-memory pixels without rendering or reloading them.
+    const sourceElement = layer.object.getElement() as HTMLImageElement | HTMLCanvasElement;
+    if (!sourceElement) return;
+
+    const clonedObj = new FabricImage(sourceElement, {
+      left: (layer.object.left ?? 0) + 32,
+      top: (layer.object.top ?? 0) + 32,
+      scaleX: layer.object.scaleX,
+      scaleY: layer.object.scaleY,
+      angle: layer.object.angle,
+      flipX: layer.object.flipX,
+      flipY: layer.object.flipY,
+      opacity: layer.object.opacity,
+      hasControls: true,
+    }) as LayerImage;
+
+    clonedObj.studioLayerId = crypto.randomUUID();
+    applyLayerCrop(clonedObj, { ...(layer.object.studioCrop ?? emptyCrop()) });
+    clonedObj.setControlsVisibility({ mt: false, mb: false, ml: false, mr: false, mtr: true });
+    clonedObj.setCoords();
+
+    canvas.add(clonedObj);
+    canvas.setActiveObject(clonedObj);
+
+    const newLayer: StudioLayer = {
+      id: clonedObj.studioLayerId,
+      name: `${layer.name} (Copy)`,
+      object: clonedObj,
+      originalSource: layer.originalSource,
+      isBase: false,
+    };
+    const mask = masksRef.current.get(layer.id);
+    if (mask) masksRef.current.set(newLayer.id, copyPixels(mask));
+    setLayers(current => [...current, newLayer]);
+    setSelectedLayerId(newLayer.id);
+    canvas.requestRenderAll();
+  }
+  function toggleLock(layer: StudioLayer) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    recordHistory();
+    const locked = !layer.object.lockMovementX;
+    layer.object.set({ lockMovementX: locked, lockMovementY: locked, lockRotation: locked,
+      lockScalingX: locked, lockScalingY: locked, hasControls: !locked, selectable: !locked, evented: !locked });
+    if (locked && canvas.getActiveObject() === layer.object) canvas.discardActiveObject();
+    if (locked && selectedLayerId === layer.id) setSelectedLayerId(null);
+    setLayers(current => [...current]);
+    canvas.requestRenderAll();
+  }
+
+  function copySelectedLayer() {
+    const layer = layers.find(current => current.id === selectedLayerId);
+    if (!layer || layer.isBase) return;
+    const pixels = layer.object.getElement();
+    const original = layer.object;
+    const properties = {
+      left: original.left, top: original.top, width: original.width, height: original.height,
+      scaleX: original.scaleX, scaleY: original.scaleY, angle: original.angle,
+      skewX: original.skewX, skewY: original.skewY, flipX: original.flipX, flipY: original.flipY,
+      originX: original.originX, originY: original.originY, opacity: original.opacity,
+      visible: original.visible, globalCompositeOperation: original.globalCompositeOperation,
+      cropX: original.cropX, cropY: original.cropY,
+    };
+    const object = new FabricImage(pixels instanceof HTMLCanvasElement ? copyPixels(pixels) : pixels,
+      properties) as LayerImage;
+    const mask = masksRef.current.get(layer.id);
+    clipboardLayerRef.current = { object, source: layer.originalSource, name: layer.name,
+      crop: { ...(layer.object.studioCrop ?? emptyCrop()) }, mask: mask ? copyPixels(mask) : undefined };
+  }
+
+  function pasteLayer() {
+    if (clipboardLayerRef.current) return cloneLayer(clipboardLayerRef.current, true);
   }
 
   function reorderLayer(layer: StudioLayer, direction: 1 | -1) {
@@ -668,10 +850,24 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
 
   useEffect(() => {
     const handleDelete = (event: KeyboardEvent) => {
+      if (showAssetModal) {
+        if (event.key === 'Escape') { event.preventDefault(); setShowAssetModal(false); }
+        return;
+      }
       if (resetting || currentStep !== 'compose') return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.closest('input, textarea, select') || target.isContentEditable)) return;
       const key = event.key.toLowerCase();
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && ['c', 'v', 'd'].includes(key)) {
+        const layer = layers.find(current => current.id === selectedLayerId);
+        if (key === 'v' ? !clipboardLayerRef.current : !layer || layer.isBase) return;
+        event.preventDefault();
+        if (event.repeat) return;
+        if (key === 'c') copySelectedLayer();
+        else if (key === 'v') void pasteLayer();
+        else if (layer) void duplicateLayer(layer);
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && (key === 'z' || key === 'y')) {
         event.preventDefault();
         historyAction(key === 'y' || event.shiftKey ? 'redo' : 'undo');
@@ -690,7 +886,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     };
     window.addEventListener('keydown', handleDelete);
     return () => window.removeEventListener('keydown', handleDelete);
-  }, [layers, selectedLayerId, resetting, currentStep]);
+  }, [layers, selectedLayerId, resetting, currentStep, showAssetModal]);
 
   function toggleVisibility(layer: StudioLayer) {
     const canvas = canvasRef.current;
@@ -1221,7 +1417,10 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       {error && <p role="alert" style={{ margin: 0, padding: '10px 24px', color: '#fca5a5', background: '#342026' }}>{error}</p>}
       <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden' }}>
         <nav aria-label="Canvas tools" className="w-64" style={{ width: 256, flexShrink: 0, padding: 12, borderRight: '1px solid #ffffff0a', background: '#17191e', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" onClick={() => inputRef.current?.click()} style={{ padding: '10px 6px', marginBottom: 8, borderRadius: 6, background: '#8ccbd8', color: '#101b28', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ Add Layer / Image</button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+            <button type="button" onClick={() => inputRef.current?.click()} style={{ padding: '9px 4px', borderRadius: 6, background: '#8ccbd8', color: '#101b28', fontSize: 11, fontWeight: 600, cursor: 'pointer', textAlign: 'center' }}>+ Upload</button>
+            <button type="button" onClick={() => setShowAssetModal(true)} aria-haspopup="dialog" style={{ padding: '9px 4px', borderRadius: 6, border: '1px solid #ffffff1e', background: '#1e222a', color: '#dce7f8', fontSize: 11, fontWeight: 500, cursor: 'pointer', textAlign: 'center' }}>Library</button>
+          </div>
           {([['move', 'Move / Select', 'V'], ['eraser', 'Eraser', 'E'], ['brush', 'Brush / Inpaint Mask', 'B']] as const).map(([mode, label, shortcut]) => (
             <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" key={mode} type="button" title={`${label} (${shortcut})`} aria-pressed={tool === mode} disabled={mode !== 'move' && !selectedImportedLayer?.object.visible} onClick={() => setTool(mode)} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 12, borderRadius: 6, border: '1px solid #ffffff14', background: tool === mode ? '#394760' : '#20232a', color: mode === 'move' || selectedImportedLayer?.object.visible ? '#e5e7eb' : '#626976', cursor: 'pointer' }}>{label} <span style={{ color: '#8792a5' }}>({shortcut})</span></button>
           ))}
@@ -1284,7 +1483,119 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
               ready={refinementReady && !reviewError}
               error={reviewError ?? harmonizationState.error}
               onAccept={() => void acceptRefinedComposition()}
-            /></div> : currentStep === 'finish' ? <section style={{ padding: 8, color: '#a1a1aa', fontSize: 12 }}><h2 style={{ color: '#e4e4e7', marginBottom: 12 }}>Finish</h2><p>{harmonizedResult?.review?.acceptedAt ? 'Refined composition saved to this project.' : 'Accept your refinements in Harmonize to save the finished piece.'}</p>{reviewError && <p role="alert" style={{ marginTop: 12, color: '#e4b0b0' }}>{reviewError}</p>}</section> : <>
+            /></div> : currentStep === 'finish' ? (
+  <section
+    aria-label="Finish and Export Dock"
+    style={{ display: 'flex', flexDirection: 'column', gap: 14, color: '#dce7f8', fontSize: 11, height: '100%', overflowY: 'auto' }}
+  >
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#82c9da', margin: 0 }}>
+        03 Finish & Export
+      </h2>
+      <span style={{ fontSize: 10, color: '#00E599', fontWeight: 600 }}>● Ready</span>
+    </div>
+
+    {/* Artwork Specification Card */}
+    <div style={{ padding: '10px 12px', background: '#141619', border: '1px solid #ffffff12', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span style={{ color: '#94a3b8' }}>Status</span>
+        <span style={{ color: '#00E599', fontWeight: 600 }}>Baked Master</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span style={{ color: '#94a3b8' }}>Resolution</span>
+        <span style={{ color: '#e2e8f0', fontWeight: 500 }}>
+          {harmonizedResult?.audit.width ? `${harmonizedResult.audit.width} × ${harmonizedResult.audit.height}px` : 'Canvas Native'}
+        </span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span style={{ color: '#94a3b8' }}>Color Treatment</span>
+        <span style={{ color: '#38bdf8', fontWeight: 500 }}>Photometric Blend</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span style={{ color: '#94a3b8' }}>Applied Intensity</span>
+        <span style={{ color: '#e2e8f0' }}>{harmonizedResult?.audit.appliedIntensity ?? 80}%</span>
+      </div>
+    </div>
+
+    {/* Export Options & Actions */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 6, borderTop: '1px solid #ffffff0f' }}>
+      <button
+        type="button"
+        onClick={exportComposition}
+        style={{
+          width: '100%',
+          padding: '12px 6px',
+          borderRadius: 7,
+          border: '1px solid #82c9da55',
+          background: '#80cbd9',
+          color: '#0b1723',
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          boxShadow: '0 2px 10px rgba(130, 201, 218, 0.2)',
+        }}
+      >
+        <span> Download Master Image</span>
+      </button>
+
+      <p style={{ margin: 0, fontSize: 10, color: '#94a3b8', textAlign: 'center' }}>
+        Exports lossless full-resolution PNG with baked lighting and contact shadows.
+      </p>
+    </div>
+
+    {/* Workflow Revision Navigation */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto', paddingTop: 16, borderTop: '1px solid #ffffff0f' }}>
+      <span style={{ fontSize: 10, color: '#a1a1aa', textTransform: 'uppercase', fontWeight: 600 }}>Revision Controls</span>
+      <button
+        type="button"
+        onClick={() => navigateWorkflow('harmonize')}
+        style={{
+          width: '100%',
+          padding: '8px 4px',
+          borderRadius: 6,
+          border: '1px solid #ffffff14',
+          background: '#1e222a',
+          color: '#cbd5e1',
+          fontSize: 11,
+          fontWeight: 500,
+          cursor: 'pointer',
+          textAlign: 'left',
+          paddingLeft: 10,
+        }}
+      >
+        ← Revise in Harmonize
+      </button>
+      <button
+        type="button"
+        onClick={() => navigateWorkflow('compose')}
+        style={{
+          width: '100%',
+          padding: '8px 4px',
+          borderRadius: 6,
+          border: '1px solid #ffffff14',
+          background: '#141619',
+          color: '#94a3b8',
+          fontSize: 11,
+          cursor: 'pointer',
+          textAlign: 'left',
+          paddingLeft: 10,
+        }}
+      >
+        ← Back to Compose (Layers)
+      </button>
+    </div>
+
+    {reviewError && (
+      <p role="alert" style={{ margin: 0, padding: 8, borderRadius: 4, background: '#451a1a', color: '#fca5a5', fontSize: 10 }}>
+        {reviewError}
+      </p>
+    )}
+  </section>
+) : <>
           <div role="tablist" aria-label="Inspector" style={{ display: 'flex', flexShrink: 0, gap: 2, marginBottom: 12, padding: 3, background: '#101216', borderRadius: 6 }}>
             {([['layers', 'Layers'], ['transform', 'Transform'], ['style', 'AristoColors']] as const).map(([tab, label]) =>
               <button key={tab} type="button" role="tab" aria-selected={inspectorTab === tab} disabled={tab === 'transform' && !selectedLayer} onClick={() => setInspectorTab(tab)} style={{ flex: 1, minWidth: 0, padding: '7px 3px', fontSize: 11, borderRadius: 4, border: '1px solid #3f3f46', background: inspectorTab === tab ? '#3f3f46' : '#18181b', color: inspectorTab === tab ? '#ffffff' : '#a1a1aa', cursor: tab === 'transform' && !selectedLayer ? 'default' : 'pointer' }}>{label}</button>)}
@@ -1313,11 +1624,18 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-white aria-pressed:font-medium [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-pressed={selectedLayerId === layer.id} onClick={() => {
               const canvas = canvasRef.current;
               if (!canvas) return;
+              if (!layer.object.selectable) return;
               if (layer.object.visible) canvas.setActiveObject(layer.object);
               else canvas.discardActiveObject();
               setSelectedLayerId(layer.id);
               canvas.requestRenderAll();
             }} title={layer.name} style={{ flex: 1, minWidth: 0, textAlign: 'left', padding: '11px 3px', border: 0, background: 'transparent', color: selectedLayerId === layer.id ? '#ffffff' : '#aab2c0', fontWeight: selectedLayerId === layer.id ? 500 : 400, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>{layer.name}</button>
+            <button className="!flex !items-center !justify-center !bg-zinc-800 !text-zinc-200 !rounded-md hover:!bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" type="button" aria-label={`${layer.object.lockMovementX ? 'Unlock' : 'Lock'} ${layer.name}`} title={layer.object.lockMovementX ? 'Unlock layer' : 'Lock layer'} aria-pressed={layer.object.lockMovementX} onClick={() => toggleLock(layer)} style={{ width: 28, height: 28, minWidth: 28, padding: 5, border: '1px solid #52525b', background: '#27272a', color: layer.object.lockMovementX ? '#22d3ee' : '#9aa4b5', cursor: 'pointer', flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d={layer.object.lockMovementX ? 'M8 10V6a4 4 0 0 1 8 0v4' : 'M8 10V6a4 4 0 0 1 8 0'} /></svg>
+            </button>
+            {!layer.isBase && <button className="!flex !items-center !justify-center !bg-zinc-800 !text-zinc-200 !rounded-md hover:!bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300" type="button" aria-label={`Duplicate ${layer.name}`} title="Duplicate layer (Ctrl+D)" onClick={() => void duplicateLayer(layer)} style={{ width: 28, height: 28, minWidth: 28, padding: 5, border: '1px solid #52525b', background: '#27272a', color: '#e4e4e7', cursor: 'pointer', flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="8" width="13" height="13" rx="2" /><path d="M16 8V3H3v13h5" /></svg>
+            </button>}
             {!layer.isBase && <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-label={`Move ${layer.name} up`} title="Move up" disabled={layers.indexOf(layer) === layers.length - 1} onClick={() => reorderLayer(layer, 1)} style={{ padding: 4, border: 0, background: 'transparent', color: layers.indexOf(layer) === layers.length - 1 ? '#3e4653' : '#9aa4b5', cursor: layers.indexOf(layer) === layers.length - 1 ? 'default' : 'pointer' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button>
               <button className="!bg-zinc-900/40 hover:!bg-zinc-800/70 !text-zinc-300 !border-zinc-800 rounded-md transition-colors duration-150 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300/60 disabled:!text-zinc-600 disabled:hover:!bg-zinc-900/40 disabled:cursor-not-allowed aria-pressed:!bg-cyan-400/10 aria-pressed:!text-cyan-200 [&[aria-selected=true]]:!bg-cyan-400/10 [&[aria-selected=true]]:!text-cyan-200 [&[aria-current=step]]:!bg-cyan-400/10 [&[aria-current=step]]:!text-cyan-200" type="button" aria-label={`Move ${layer.name} down`} title="Move down" disabled={layers.indexOf(layer) <= 1} onClick={() => reorderLayer(layer, -1)} style={{ padding: 4, border: 0, background: 'transparent', color: layers.indexOf(layer) <= 1 ? '#3e4653' : '#9aa4b5', cursor: layers.indexOf(layer) <= 1 ? 'default' : 'pointer' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button>
@@ -1327,6 +1645,31 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             </button>}
             </div>
           ))}
+          {selectedImportedLayer && (
+            <div style={{ margin: '8px 0 12px' }}>
+              <button
+                type="button"
+                onClick={() => void handleAutoCutout(selectedImportedLayer)}
+                style={{
+                  width: '100%',
+                  padding: '8px 8px',
+                  borderRadius: 6,
+                  border: '1px solid #38bdf866',
+                  background: '#0d2836',
+                  color: '#38bdf8',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>✂️ Auto-Cutout / Remove BG</span>
+              </button>
+            </div>
+          )}
           {selectedImportedLayer && <section aria-label="Layer appearance" style={{ margin: '20px 8px 0', paddingTop: 18, borderTop: '1px solid #ffffff0a' }}>
             <label htmlFor="layer-opacity" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#aab2c0', marginBottom: 10 }}>
               Opacity <span>{Math.round(selectedImportedLayer.object.opacity * 100)}%</span>
@@ -1365,6 +1708,35 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         setPreview(null);
         void startHarmonization();
       }} />}
+      {showAssetModal && (
+        <div role="dialog" aria-modal="true" aria-label="Preset Asset Library"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(5, 7, 11, 0.75)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', zIndex: 50, padding: 16 }}
+          onClick={() => setShowAssetModal(false)}>
+          <div style={{ background: '#17191e', border: '1px solid #ffffff1a', borderRadius: 12, padding: 20, maxWidth: 640, width: '100%', maxHeight: '90vh', overflowY: 'auto', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: 16 }} onClick={event => event.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>Preset Asset Library</h2>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>Click any background plate or reference asset to insert directly as a canvas layer.</p>
+              </div>
+              <button type="button" autoFocus aria-label="Close asset library" onClick={() => setShowAssetModal(false)} style={{ background: 'transparent', border: 0, color: '#94a3b8', fontSize: 18, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
+              {STUDIO_PRESET_ASSETS.map(asset => (
+                <button key={asset.id} type="button" disabled={assetLoading} onClick={() => void addPresetFromLibrary(asset.name, asset.url)}
+                  style={{ display: 'flex', flexDirection: 'column', background: '#0f1115', border: '1px solid #ffffff12', borderRadius: 8, overflow: 'hidden', cursor: assetLoading ? 'wait' : 'pointer', textAlign: 'left', transition: 'transform 0.15s, border-color 0.15s' }}>
+                  <div style={{ width: '100%', height: 80, background: '#1c1f26', overflow: 'hidden' }}>
+                    <img src={asset.url} alt={asset.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  <div style={{ padding: '6px 8px' }}>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: '#cbd5e1', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            {assetLoading && <p role="status" style={{ margin: 0, fontSize: 11 }}>Adding asset...</p>}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
