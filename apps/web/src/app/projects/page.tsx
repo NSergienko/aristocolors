@@ -16,7 +16,13 @@ import { ProjectCard } from '@/components/projects/project-card';
 import { CreateProjectCard } from '@/components/projects/create-project-card';
 import { MOCK_PROJECTS } from '@/components/projects/mock-projects';
 import type { ProjectCardData } from '@/components/projects/project-card';
-import { listStudioProjectIndexes } from '@/components/studio/studio-project-storage';
+import { clearStudioManifest, listStudioProjectIndexes } from '@/components/studio/studio-project-storage';
+
+const CANVAS_PRESETS = [
+  { id: 'landscape', label: '16:9 Landscape', width: 1920, height: 1080 },
+  { id: 'square', label: '1:1 Square', width: 1080, height: 1080 },
+  { id: 'portrait', label: '9:16 Portrait', width: 1080, height: 1920 },
+] as const;
 
 function relativeEditedTime(timestamp: number): string {
   if (!timestamp) return 'Saved locally';
@@ -35,6 +41,9 @@ export default function ProjectsPage() {
   const [activeFilter, setActiveFilter] = useState<ProjectFilter>('all');
   const [viewDensity, setViewDensity] = useState<ViewDensity>('large');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState('Untitled Project');
+  const [selectedPresetId, setSelectedPresetId] = useState<(typeof CANVAS_PRESETS)[number]['id']>('landscape');
 
   const [activeProject, setActiveProject] = useState<ProjectCardData>(MOCK_PROJECTS[0]);
 
@@ -61,8 +70,36 @@ export default function ProjectsPage() {
     router.push(`/projects/${projectId}`);
   };
 
+  const handleDeleteProject = (projectId: string) => {
+    if (MOCK_PROJECTS.some(project => project.id === projectId)) return;
+    setActiveProject(current => current.id === projectId ? MOCK_PROJECTS[0] : current);
+    void Promise.all([
+      clearStudioManifest(`aristocolors_project_${projectId}_manifest`),
+      clearStudioManifest(`aristocolors:manifest:${projectId}`),
+    ]).catch(cause => console.error('Unable to delete the local project:', cause));
+  };
+
   const handleCreateNew = () => {
-    router.push('/projects/new');
+    setNewProjectTitle('Untitled Project');
+    setSelectedPresetId('landscape');
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCreateCanvas = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const preset = CANVAS_PRESETS.find(({ id }) => id === selectedPresetId);
+    const title = newProjectTitle.trim();
+    if (!preset || !title) return;
+
+    const projectId = `project-${crypto.randomUUID()}`;
+    const canvas = document.createElement('canvas');
+    canvas.width = preset.width;
+    canvas.height = preset.height;
+    const dataUrl = canvas.toDataURL('image/png');
+    sessionStorage.setItem(`aristocolors:local-import:${projectId}`, JSON.stringify({
+      dataUrl, name: title, canvasWidth: preset.width, canvasHeight: preset.height,
+    }));
+    router.push(`/projects/${projectId}?localImport=${encodeURIComponent(projectId)}`);
   };
 
   // Filter projects by tab, category pill, and search term
@@ -129,6 +166,8 @@ export default function ProjectsPage() {
           profileName={activeProject.profileName}
           imageUrl={activeProject.imageUrl}
           onOpen={() => handleOpenProject(activeProject.id)}
+          isUserProject={!MOCK_PROJECTS.some(project => project.id === activeProject.id)}
+          onDelete={() => handleDeleteProject(activeProject.id)}
         />
       )}
 
@@ -186,6 +225,159 @@ export default function ProjectsPage() {
           >
             Reset Filters
           </Button>
+        </div>
+      )}
+
+      {isCreateModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create New Project"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5, 7, 11, 0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: 16,
+          }}
+          onClick={() => setIsCreateModalOpen(false)}
+        >
+          <div
+            style={{
+              background: '#12141a',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: 14,
+              padding: 24,
+              maxWidth: 480,
+              width: '100%',
+              color: '#e2e8f0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 20,
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>
+                  Create New Project
+                </h2>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                  Choose canvas dimensions and name your composition
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close dialog"
+                onClick={() => setIsCreateModalOpen(false)}
+                style={{ background: 'transparent', border: 0, color: '#94a3b8', fontSize: 18, cursor: 'pointer', padding: 4 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCanvas} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label htmlFor="new-project-title" style={{ fontSize: 11, fontWeight: 600, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Project Title
+                </label>
+                <input
+                  id="new-project-title"
+                  type="text"
+                  value={newProjectTitle}
+                  onChange={(event) => setNewProjectTitle(event.target.value)}
+                  placeholder="e.g. Neon Horizon, Forgotten Temple"
+                  style={{
+                    background: '#1a1d24',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    color: '#f8fafc',
+                    fontSize: 13,
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Canvas Format
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {CANVAS_PRESETS.map((preset) => {
+                    const isSelected = selectedPresetId === preset.id;
+                    const label = preset.id === 'landscape' ? '16:9 Banner' : preset.id === 'square' ? '1:1 Feed' : '9:16 TikTok';
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => setSelectedPresetId(preset.id)}
+                        style={{
+                          padding: '12px 8px',
+                          borderRadius: 8,
+                          border: isSelected ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                          background: isSelected ? '#0d2836' : '#1a1d24',
+                          color: isSelected ? '#38bdf8' : '#94a3b8',
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 4,
+                          alignItems: 'center',
+                          minWidth: 0,
+                        }}
+                      >
+                        <span style={{ fontSize: 11, fontWeight: 600, color: isSelected ? '#f8fafc' : '#cbd5e1' }}>
+                          {label}
+                        </span>
+                        <span style={{ fontSize: 9, opacity: 0.75 }}>{preset.width} × {preset.height}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  style={{
+                    padding: '9px 16px',
+                    borderRadius: 7,
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    background: 'transparent',
+                    color: '#94a3b8',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 20px',
+                    borderRadius: 7,
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    background: '#38bdf8',
+                    color: '#0b1723',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Create Canvas →
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </AppShell>

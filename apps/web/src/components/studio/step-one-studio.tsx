@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Canvas, StaticCanvas, FabricImage, util } from 'fabric';
+import { Canvas, StaticCanvas, FabricImage, Point, util } from 'fabric';
 import { loadStudioManifest, saveStudioManifest, clearStudioManifest, pixelsToPng, type StoredStudioManifest } from './studio-project-storage';
 import { removeSolidBackground } from './remove-solid-background';
 import { AristoColorsProfilePanel } from './aristocolors-profile-panel';
@@ -387,10 +387,9 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
 
   function insertImage(canvas: Canvas, image: HTMLImageElement, name: string, isBase: boolean) {
     const id = crypto.randomUUID();
-    const proportion = isBase ? 0.9 : 0.7;
     const scale = Math.min(
-      canvas.getWidth() * proportion / image.naturalWidth,
-      canvas.getHeight() * proportion / image.naturalHeight,
+      canvas.getWidth() / image.naturalWidth,
+      canvas.getHeight() / image.naturalHeight,
     );
     const object = new FabricImage(image, {
       left: (canvas.getWidth() - image.naturalWidth * scale) / 2,
@@ -451,18 +450,27 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     canvas.on('selection:updated', updateSelection);
     canvas.on('selection:cleared', updateSelection);
     const fitCanvas = () => {
-      const availableHeight = Math.max(1, Math.min(host.clientHeight, window.innerHeight - 68));
-      const scale = viewModeRef.current === 'actual' ? 1 : Math.min(host.clientWidth / canvas.getWidth(), availableHeight / canvas.getHeight());
-      const width = Math.max(1, canvas.getWidth() * scale);
-      const height = Math.max(1, canvas.getHeight() * scale);
-      // Fit the display, preserving scene coordinates, transforms, and export resolution.
-      canvas.setDimensions({ width, height }, { cssOnly: true });
-      mount.style.width = `${width}px`;
-      mount.style.height = `${height}px`;
+      const availableWidth = Math.max(1, host.clientWidth || window.innerWidth - 520);
+      const availableHeight = Math.max(1, host.clientHeight || window.innerHeight - 80);
+      const canvasWidth = canvas.getWidth();
+      const canvasHeight = canvas.getHeight();
+      const scale = viewModeRef.current === 'actual' ? 1 : Math.min(
+        Math.max(1, availableWidth - 64) / canvasWidth,
+        Math.max(1, availableHeight - 64) / canvasHeight,
+      );
+      canvas.setZoom(scale);
+      const panX = viewModeRef.current === 'actual' ? 0 : (availableWidth - canvasWidth * scale) / 2;
+      const panY = viewModeRef.current === 'actual' ? 0 : (availableHeight - canvasHeight * scale) / 2;
+      canvas.absolutePan(new Point(-panX, -panY));
+      mount.style.width = `${viewModeRef.current === 'actual' ? canvasWidth : availableWidth}px`;
+      mount.style.height = `${viewModeRef.current === 'actual' ? canvasHeight : availableHeight}px`;
+      mount.style.position = 'relative';
+      mount.style.overflow = 'hidden';
       mount.style.flexShrink = '0';
       host.style.overflow = viewModeRef.current === 'actual' ? 'auto' : 'hidden';
-      host.style.alignItems = height > host.clientHeight ? 'flex-start' : 'center';
-      host.style.justifyContent = width > host.clientWidth ? 'flex-start' : 'center';
+      host.style.alignItems = viewModeRef.current === 'actual' ? 'flex-start' : 'center';
+      host.style.justifyContent = viewModeRef.current === 'actual' ? 'flex-start' : 'center';
+      canvas.requestRenderAll();
     };
     fitViewRef.current = fitCanvas;
     fitCanvas();
@@ -517,6 +525,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         }
         let source = initialArtworkUrl;
         let name = projectTitle;
+        let presetDimensions: { width: number; height: number } | undefined;
         if (localImportToken) {
           const stored = sessionStorage.getItem(`aristocolors:local-import:${localImportToken}`);
           if (!stored) throw new Error('The locally imported project image is unavailable.');
@@ -528,10 +537,23 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
           }
           source = pending.dataUrl;
           name = pending.name;
+          const canvasWidth = 'canvasWidth' in pending ? pending.canvasWidth : undefined;
+          const canvasHeight = 'canvasHeight' in pending ? pending.canvasHeight : undefined;
+          if (canvasWidth !== undefined || canvasHeight !== undefined) {
+            if (typeof canvasWidth !== 'number' || !Number.isFinite(canvasWidth) || canvasWidth <= 0 ||
+                typeof canvasHeight !== 'number' || !Number.isFinite(canvasHeight) || canvasHeight <= 0) {
+              throw new Error('The selected canvas dimensions are invalid.');
+            }
+            presetDimensions = { width: canvasWidth, height: canvasHeight };
+          }
         }
         if (!source) throw new Error('This project has no base artwork.');
         const image = await decodeImage(source);
         if (canvasRef.current !== canvas) return;
+        if (presetDimensions) {
+          canvas.setDimensions(presetDimensions);
+          fitCanvas();
+        }
         setTitle(name);
         insertImage(canvas, image, name, true);
         baseReadyRef.current = true;

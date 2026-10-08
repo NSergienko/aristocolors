@@ -13,6 +13,8 @@ export interface RecentProjectShowcaseProps {
   profileName?: string;
   imageUrl?: string;
   onOpen?: () => void;
+  isUserProject?: boolean;
+  onDelete?: () => void;
 }
 
 export const RecentProjectShowcase: React.FC<RecentProjectShowcaseProps> = ({
@@ -24,6 +26,8 @@ export const RecentProjectShowcase: React.FC<RecentProjectShowcaseProps> = ({
   profileName = 'Blue Hour',
   imageUrl = '/artwork/cyberpunk-district-recon.jpg',
   onOpen,
+  isUserProject = false,
+  onDelete,
 }) => {
   return (
     <div
@@ -169,18 +173,47 @@ export const RecentProjectShowcase: React.FC<RecentProjectShowcaseProps> = ({
             </div>
           </div>
 
-          <Button
-            variant="primary"
-            size="md"
-            onClick={onOpen}
-            icon={
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            }
-          >
-            Resume Editing
-          </Button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={onOpen}
+              icon={
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+              }
+            >
+              Resume Editing
+            </Button>
+            {isUserProject && (
+              <button
+                type="button"
+                onClick={onDelete}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 16px',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#fca5a5',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="m19 6-1 14H6L5 6" />
+                  <path d="M10 11v5M14 11v5" />
+                </svg>
+                Delete Project
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
