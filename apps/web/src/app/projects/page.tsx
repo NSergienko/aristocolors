@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/layout/page-header';
@@ -15,6 +15,19 @@ import {
 import { ProjectCard } from '@/components/projects/project-card';
 import { CreateProjectCard } from '@/components/projects/create-project-card';
 import { MOCK_PROJECTS } from '@/components/projects/mock-projects';
+import type { ProjectCardData } from '@/components/projects/project-card';
+import { listStudioProjectIndexes } from '@/components/studio/studio-project-storage';
+
+function relativeEditedTime(timestamp: number): string {
+  if (!timestamp) return 'Saved locally';
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+}
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -23,8 +36,25 @@ export default function ProjectsPage() {
   const [viewDensity, setViewDensity] = useState<ViewDensity>('large');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // The dominant active project for the top showcase
-  const activeProject = MOCK_PROJECTS[0];
+  const [activeProject, setActiveProject] = useState<ProjectCardData>(MOCK_PROJECTS[0]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    void listStudioProjectIndexes().then(([latest]) => {
+      if (!isCurrent || !latest) return;
+      setActiveProject({
+        id: latest.data.id,
+        title: latest.data.title,
+        layersCount: latest.data.layersCount,
+        lastEdited: relativeEditedTime(latest.data.updatedAt),
+        resolution: `${latest.data.width} × ${latest.data.height}`,
+        profileName: 'Local Project',
+        imageUrl: latest.data.thumbnailDataUrl,
+        gradientBackground: 'linear-gradient(135deg, #0b0c10 0%, #151821 50%, #0d1017 100%)',
+      });
+    }).catch(() => undefined);
+    return () => { isCurrent = false; };
+  }, []);
 
   const handleOpenProject = (projectId: string) => {
     // Navigate to studio workspace

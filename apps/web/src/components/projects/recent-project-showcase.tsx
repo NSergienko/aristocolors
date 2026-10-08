@@ -179,7 +179,7 @@ export const RecentProjectShowcase: React.FC<RecentProjectShowcaseProps> = ({
               </svg>
             }
           >
-            Resume Project
+            Resume Editing
           </Button>
         </div>
       </div>

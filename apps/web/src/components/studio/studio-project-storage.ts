@@ -26,6 +26,7 @@ export type StoredStudioManifest = z.infer<typeof manifestSchema>;
 const canonicalSchema = z.object({
   activeAristoColorsId: CanvasLayerManifestSchema.shape.activeAristoColorsId,
   version: z.literal(2), assetKey: z.string(), title: z.string(), selectedLayerId: z.string().nullable(),
+  updatedAt: z.number().nonnegative().optional(),
   width: z.number().positive(), height: z.number().positive(),
   layers: z.array(z.object({
     id: z.string(), name: z.string(), src: z.string(), isBase: z.boolean(),
@@ -34,6 +35,22 @@ const canonicalSchema = z.object({
     blendMode: valuesSchema.shape.globalCompositeOperation, visible: z.boolean(),
     flipX: z.boolean().default(false), flipY: z.boolean().default(false), crop: cropSchema,
   })).min(1),
+});
+
+export interface StudioProjectIndex {
+  id: string;
+  title: string;
+  updatedAt: number;
+  width: number;
+  height: number;
+  layersCount: number;
+  thumbnailDataUrl?: string;
+}
+
+const projectIndexSchema = z.object({
+  summary: z.object({
+    id: z.string(), updatedAt: z.number().nonnegative(), thumbnailDataUrl: z.string().optional(),
+  }),
 });
 
 function openStorage(): Promise<IDBDatabase> {
@@ -47,11 +64,24 @@ function openStorage(): Promise<IDBDatabase> {
 
 export async function loadStudioManifest(key: string): Promise<StoredStudioManifest | null> {
   const json = localStorage.getItem(key);
-  const canonical = json ? canonicalSchema.parse(JSON.parse(json)) : null;
+  let canonical = json ? canonicalSchema.safeParse(JSON.parse(json)).data ?? null : null;
   const db = await openStorage();
   try {
+    const store = db.transaction('manifests').objectStore('manifests');
+    const index: unknown = await new Promise((resolve, reject) => {
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    if (index && typeof index === 'object' && 'canonical' in index) {
+      canonical = canonicalSchema.parse(index.canonical);
+    }
+    if (!canonical) {
+      const legacy = manifestSchema.safeParse(index);
+      if (legacy.success) return legacy.data;
+    }
     const value: unknown = await new Promise((resolve, reject) => {
-      const request = db.transaction('manifests').objectStore('manifests').get(canonical?.assetKey ?? key);
+      const request = store.get(canonical?.assetKey ?? key);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -60,13 +90,14 @@ export async function loadStudioManifest(key: string): Promise<StoredStudioManif
       return null;
     }
     let manifest = manifestSchema.parse(value);
-    if (canonical) {
+    const savedCanonical = canonical;
+    if (savedCanonical) {
       const assets = new Map(manifest.layers.map(layer => [layer.id, layer]));
-      manifest = { ...manifest, activeAristoColorsId: canonical.activeAristoColorsId, title: canonical.title, selectedLayerId: canonical.selectedLayerId,
-        width: canonical.width, height: canonical.height,
-        layers: canonical.layers.map(layer => {
+      manifest = { ...manifest, activeAristoColorsId: savedCanonical.activeAristoColorsId, title: savedCanonical.title, selectedLayerId: savedCanonical.selectedLayerId,
+        width: savedCanonical.width, height: savedCanonical.height,
+        layers: savedCanonical.layers.map(layer => {
           const asset = assets.get(layer.id);
-          if (!asset || layer.src !== `indexeddb:${canonical.assetKey}:${layer.id}`) throw new Error('A saved layer source is missing.');
+          if (!asset || layer.src !== `indexeddb:${savedCanonical.assetKey}:${layer.id}`) throw new Error('A saved layer source is missing.');
           return { ...asset, id: layer.id, name: layer.name, isBase: layer.isBase, zIndex: layer.zIndex, crop: layer.crop,
             values: { left: layer.x, top: layer.y, scaleX: layer.scaleX, scaleY: layer.scaleY,
               angle: layer.rotation, opacity: layer.opacity, globalCompositeOperation: layer.blendMode, visible: layer.visible,
@@ -83,7 +114,69 @@ export async function loadStudioManifest(key: string): Promise<StoredStudioManif
   } finally { db.close(); }
 }
 
-export async function saveStudioManifest(key: string, manifest: StoredStudioManifest, isCurrent: () => boolean): Promise<void> {
+export async function listStudioProjectIndexes(): Promise<{ key: string; data: StudioProjectIndex }[]> {
+  const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+    .filter((key): key is string => !!key && /^aristocolors_project_.+_manifest$/.test(key));
+  const db = await openStorage();
+  try {
+    const indexed = await new Promise<Map<string, unknown>>((resolve, reject) => {
+      const projects = new Map<string, unknown>();
+      const request = db.transaction('manifests').objectStore('manifests').openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) { resolve(projects); return; }
+        if (typeof cursor.key === 'string' && /^aristocolors_project_.+_manifest$/.test(cursor.key)) {
+          projects.set(cursor.key, cursor.value);
+        }
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error);
+    });
+    const entries = new Map<string, { id: string; canonical: z.infer<typeof canonicalSchema>; index: unknown }>();
+    for (const key of keys) {
+      const match = key.match(/^aristocolors_project_(.+)_manifest$/);
+      if (!match) continue;
+      const json = localStorage.getItem(key);
+      const parsedLocal = json ? canonicalSchema.safeParse(JSON.parse(json)) : null;
+      const index: unknown = indexed.get(key);
+      const indexCanonical = index && typeof index === 'object' && 'canonical' in index
+        ? canonicalSchema.safeParse(index.canonical) : null;
+      const canonical = indexCanonical?.success ? indexCanonical.data : parsedLocal?.success ? parsedLocal.data : null;
+      if (canonical) entries.set(key, { id: match[1], canonical, index });
+    }
+    for (const [key, index] of indexed) {
+      if (entries.has(key) || !index || typeof index !== 'object' || !('canonical' in index)) continue;
+      const match = key.match(/^aristocolors_project_(.+)_manifest$/);
+      const canonical = canonicalSchema.safeParse(index.canonical);
+      if (match && canonical.success) entries.set(key, { id: match[1], canonical: canonical.data, index });
+    }
+    return Array.from(entries, ([key, entry]) => {
+      const parsedIndex = projectIndexSchema.safeParse(entry.index);
+      const summary = parsedIndex.success ? parsedIndex.data.summary : undefined;
+      return {
+        key,
+        data: {
+          id: summary?.id ?? entry.id,
+          title: entry.canonical.title,
+          updatedAt: summary?.updatedAt ?? entry.canonical.updatedAt ?? 0,
+          width: entry.canonical.width,
+          height: entry.canonical.height,
+          layersCount: entry.canonical.layers.length,
+          thumbnailDataUrl: summary?.thumbnailDataUrl,
+        },
+      };
+    }).sort((left, right) => right.data.updatedAt - left.data.updatedAt);
+  } finally { db.close(); }
+}
+
+export async function saveStudioManifest(
+  key: string,
+  manifest: StoredStudioManifest,
+  isCurrent: () => boolean,
+  summary: { id: string; updatedAt: number; thumbnailDataUrl?: string } = {
+    id: key.replace(/^aristocolors_project_(.+)_manifest$/, '$1'), updatedAt: Date.now(),
+  }
+): Promise<void> {
   const db = await openStorage();
   const assetKey = `${key}:assets:${crypto.randomUUID()}`;
   try {
@@ -101,19 +194,23 @@ export async function saveStudioManifest(key: string, manifest: StoredStudioMani
     }
     const previousJson = localStorage.getItem(key);
     const previous = previousJson ? canonicalSchema.safeParse(JSON.parse(previousJson)) : null;
+    const canonical = { version: 2 as const, assetKey, title: manifest.title, updatedAt: summary.updatedAt,
+      activeAristoColorsId: manifest.activeAristoColorsId, selectedLayerId: manifest.selectedLayerId,
+      width: manifest.width, height: manifest.height,
+      layers: manifest.layers.map(layer => ({ id: layer.id, name: layer.name, isBase: layer.isBase,
+        src: `indexeddb:${assetKey}:${layer.id}`, x: layer.values.left, y: layer.values.top,
+        scaleX: layer.values.scaleX, scaleY: layer.values.scaleY, rotation: layer.values.angle,
+        zIndex: layer.zIndex, opacity: layer.values.opacity, blendMode: layer.values.globalCompositeOperation,
+        visible: layer.values.visible, flipX: layer.values.flipX, flipY: layer.values.flipY, crop: layer.crop })) };
     try {
-      localStorage.setItem(key, JSON.stringify({ version: 2, assetKey, title: manifest.title,
-        activeAristoColorsId: manifest.activeAristoColorsId,
-        selectedLayerId: manifest.selectedLayerId, width: manifest.width, height: manifest.height,
-        layers: manifest.layers.map(layer => ({ id: layer.id, name: layer.name, isBase: layer.isBase,
-          src: `indexeddb:${assetKey}:${layer.id}`, x: layer.values.left, y: layer.values.top,
-          scaleX: layer.values.scaleX, scaleY: layer.values.scaleY, rotation: layer.values.angle,
-          zIndex: layer.zIndex, opacity: layer.values.opacity, blendMode: layer.values.globalCompositeOperation,
-          visible: layer.values.visible, flipX: layer.values.flipX, flipY: layer.values.flipY, crop: layer.crop })) }));
+      localStorage.setItem(key, JSON.stringify(canonical));
     } catch (cause) {
-      db.transaction('manifests', 'readwrite').objectStore('manifests').delete(assetKey);
-      throw cause;
+      if (!cause || typeof cause !== 'object' || !('name' in cause) || cause.name !== 'QuotaExceededError') {
+        db.transaction('manifests', 'readwrite').objectStore('manifests').delete(assetKey);
+        throw cause;
+      }
     }
+    db.transaction('manifests', 'readwrite').objectStore('manifests').put({ summary, canonical }, key);
     if (previous?.success) db.transaction('manifests', 'readwrite').objectStore('manifests').delete(previous.data.assetKey);
   } finally { db.close(); }
 }

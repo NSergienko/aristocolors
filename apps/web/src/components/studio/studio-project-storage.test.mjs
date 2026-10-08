@@ -44,7 +44,7 @@ function fixture(quota = false) {
   const source = fs.readFileSync('src/components/studio/studio-project-storage.ts', 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
   vm.runInNewContext(compiled, {
-    exports, Blob, queueMicrotask,
+    exports, Blob, queueMicrotask, crypto: { randomUUID: () => 'test-assets' },
     require(name) {
       if (name === '@aristocolors/contracts') return { CanvasLayerManifestSchema: { shape: { activeAristoColorsId: require('zod').z.string() } } };
       return require(name);

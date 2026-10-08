@@ -577,10 +577,13 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
             crop: { ...(object.studioCrop ?? emptyCrop()) } };
         }));
         if (generation !== saveGenerationRef.current || canvasRef.current !== canvas) return;
+        const thumbnailMultiplier = Math.min(1, 480 / canvas.getWidth(), 270 / canvas.getHeight());
         await saveStudioManifest(storageKey, { version: 1, title, selectedLayerId,
           activeAristoColorsId: activeProfileIdRef.current,
           width: canvas.getWidth(), height: canvas.getHeight(), layers: savedLayers },
-          () => generation === saveGenerationRef.current && canvasRef.current === canvas && !suppressSaveRef.current);
+          () => generation === saveGenerationRef.current && canvasRef.current === canvas && !suppressSaveRef.current,
+          { id: localImportToken ?? projectId, updatedAt: Date.now(),
+            thumbnailDataUrl: canvas.toDataURL({ format: 'jpeg', quality: 0.72, multiplier: thumbnailMultiplier }) });
         if (generation === saveGenerationRef.current && !suppressSaveRef.current) {
           unsavedRef.current = false;
           setSaveStatus('saved');
