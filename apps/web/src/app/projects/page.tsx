@@ -17,6 +17,7 @@ import { CreateProjectCard } from '@/components/projects/create-project-card';
 import { MOCK_PROJECTS } from '@/components/projects/mock-projects';
 import type { ProjectCardData } from '@/components/projects/project-card';
 import { clearStudioManifest, listStudioProjectIndexes } from '@/components/studio/studio-project-storage';
+import { clearHarmonizationResult } from '@/components/studio/harmonization-result-storage';
 
 const CANVAS_PRESETS = [
   { id: 'landscape', label: '16:9 Landscape', width: 1920, height: 1080 },
@@ -46,11 +47,18 @@ export default function ProjectsPage() {
   const [selectedPresetId, setSelectedPresetId] = useState<(typeof CANVAS_PRESETS)[number]['id']>('landscape');
 
   const [activeProject, setActiveProject] = useState<ProjectCardData>(MOCK_PROJECTS[0]);
+  const [activeProjectManifestKey, setActiveProjectManifestKey] = useState<string | null>(null);
+  const [projectHubError, setProjectHubError] = useState<string | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
     void listStudioProjectIndexes().then(([latest]) => {
-      if (!isCurrent || !latest) return;
+      if (!isCurrent) return;
+      if (!latest) {
+        setActiveProjectManifestKey(null);
+        return;
+      }
+      setActiveProjectManifestKey(latest.key);
       setActiveProject({
         id: latest.data.id,
         title: latest.data.title,
@@ -61,7 +69,10 @@ export default function ProjectsPage() {
         imageUrl: latest.data.thumbnailDataUrl,
         gradientBackground: 'linear-gradient(135deg, #0b0c10 0%, #151821 50%, #0d1017 100%)',
       });
-    }).catch(() => undefined);
+    }).catch(cause => {
+      console.error('Unable to load local projects:', cause);
+      if (isCurrent) setProjectHubError(cause instanceof Error ? cause.message : 'Unable to load local projects.');
+    });
     return () => { isCurrent = false; };
   }, []);
 
@@ -70,13 +81,38 @@ export default function ProjectsPage() {
     router.push(`/projects/${projectId}`);
   };
 
-  const handleDeleteProject = (projectId: string) => {
-    if (MOCK_PROJECTS.some(project => project.id === projectId)) return;
-    setActiveProject(current => current.id === projectId ? MOCK_PROJECTS[0] : current);
-    void Promise.all([
-      clearStudioManifest(`aristocolors_project_${projectId}_manifest`),
-      clearStudioManifest(`aristocolors:manifest:${projectId}`),
-    ]).catch(cause => console.error('Unable to delete the local project:', cause));
+  const handleDeleteProject = async (projectId: string) => {
+    if (!activeProjectManifestKey || activeProject.id !== projectId) {
+      setProjectHubError('The active project is not a saved local project and cannot be deleted.');
+      return;
+    }
+    try {
+      await Promise.all([
+        clearStudioManifest(activeProjectManifestKey),
+        clearHarmonizationResult(projectId),
+      ]);
+      const [nextProject] = await listStudioProjectIndexes();
+      if (nextProject) {
+        setActiveProjectManifestKey(nextProject.key);
+        setActiveProject({
+          id: nextProject.data.id,
+          title: nextProject.data.title,
+          layersCount: nextProject.data.layersCount,
+          lastEdited: relativeEditedTime(nextProject.data.updatedAt),
+          resolution: `${nextProject.data.width} × ${nextProject.data.height}`,
+          profileName: 'Local Project',
+          imageUrl: nextProject.data.thumbnailDataUrl,
+          gradientBackground: 'linear-gradient(135deg, #0b0c10 0%, #151821 50%, #0d1017 100%)',
+        });
+      } else {
+        setActiveProjectManifestKey(null);
+        setActiveProject(MOCK_PROJECTS[0]);
+      }
+      setProjectHubError(null);
+    } catch (cause) {
+      console.error('Unable to delete the local project:', cause);
+      setProjectHubError(cause instanceof Error ? cause.message : 'Unable to delete the local project.');
+    }
   };
 
   const handleCreateNew = () => {
@@ -154,6 +190,7 @@ export default function ProjectsPage() {
           </Button>
         }
       />
+      {projectHubError && <p role="alert" style={{ margin: '0 0 16px', color: '#fca5a5' }}>{projectHubError}</p>}
 
       {/* Dominant Active Showcase */}
       {activeProject && (
@@ -167,7 +204,7 @@ export default function ProjectsPage() {
           imageUrl={activeProject.imageUrl}
           onOpen={() => handleOpenProject(activeProject.id)}
           isUserProject={!MOCK_PROJECTS.some(project => project.id === activeProject.id)}
-          onDelete={() => handleDeleteProject(activeProject.id)}
+          onDelete={() => void handleDeleteProject(activeProject.id)}
         />
       )}
 

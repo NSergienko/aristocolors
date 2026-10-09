@@ -26,7 +26,8 @@ async function fixture() {
   const image = async color => 'data:image/png;base64,' + (await sharp({ create: { width: 16, height: 9, channels: 4, background: color } }).png().toBuffer()).toString('base64');
   return harmonizationResultSchema.parse({ success: true, resultImageUrl: await image('#cc7755'),
     review: { beforeImageUrl: await image('#888888'), backgroundImageUrl: await image('#554433'), foregroundMaskUrl: await image('#ffffff'),
-      refinements: { contactShadow: 20, edgeFeather: 2, warmth: 15 }, refinedImageUrl: await image('#dd8844'), acceptedAt: '2026-10-06T00:00:00.000Z' },
+      refinements: { contactShadow: 20, edgeFeather: 2, warmth: 15 }, refinedImageUrl: await image('#dd8844'),
+      acceptedImageUrl: await image('#447799'), acceptedAt: '2026-10-06T00:00:00.000Z' },
     audit: { width: 16, height: 9, harmonizedAt: '2026-10-06T00:00:00.000Z', appliedIntensity: 80, lightingMatchScore: 70,
       method: 'photometric-v1', scoreMeaning: 'luminance-statistics-similarity', aspectRatio: '16:9', processedForegroundPixels: 20 } });
 }
@@ -41,7 +42,8 @@ test('Finish renders the persisted accepted PNG without review canvas or origina
     result, refinements: result.review.refinements, finish: true, captureRef: { current: null },
     onReady() {}, onError() {}, onCompose() {},
   }));
-  assert(markup.includes(result.review.refinedImageUrl));
+  assert(markup.includes(result.review.acceptedImageUrl));
+  assert(!markup.includes(result.review.refinedImageUrl));
   assert(!markup.includes(result.review.beforeImageUrl));
   assert(!markup.includes(result.resultImageUrl));
   assert(!markup.includes('<canvas'));
@@ -53,14 +55,17 @@ test('Export uses accepted pixels in every workflow step, even without Compose c
     let downloaded;
     const link = { click() { downloaded = this.href; }, remove() {} };
     const exportImage = method('  function exportComposition()', '  function getTelemetrySample()', {
-      harmonizedResult, getAcceptedHarmonizedImage, currentStep, canvasRef: { current: null },
+      harmonizedResult, getAcceptedHarmonizedImage, currentStep, refinementReady: true, canvasRef: { current: null },
       refinementCaptureRef: { current() { throw new Error('Must not recapture accepted pixels'); } },
       exportingRef: { current: false }, title: 'Fixture', console,
       document: { createElement: () => link, body: { appendChild() {} } },
       setError(message) { throw new Error(message); },
     });
     exportImage();
-    assert.equal(downloaded, harmonizedResult.review.refinedImageUrl);
+    const expected = currentStep === 'harmonize'
+      ? harmonizedResult.review.refinedImageUrl
+      : harmonizedResult.review.acceptedImageUrl;
+    assert.equal(downloaded, expected);
   }
 });
 

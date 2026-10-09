@@ -12,6 +12,7 @@ import type { HarmonizationSettings } from './harmonization-dock';
 import { CompositionPreviewModal, type CompositionPreview } from './composition-preview-modal';
 import { harmonizationResultSchema, getAcceptedHarmonizedImage, type HarmonizationResult, type HarmonizationRefinements } from '@/lib/studio/harmonization-contract';
 import { getCanonicalPreset } from '@/lib/studio/canonical-presets';
+import { analyzeStyle, findVisibleBackgroundLayer, type ScenePixelData, type SceneTelemetry } from '@/lib/studio/engine/scene-analysis';
 import { applyPixelHarmonization, type HarmonizeParameters } from '@/lib/studio/pixel-harmonizer';
 import { loadHarmonizationResult, storeHarmonizationResult, clearHarmonizationResult } from './harmonization-result-storage';
 import { HarmonizedResultView } from './harmonized-result-view';
@@ -29,14 +30,35 @@ function profileRefinements(profile: ReturnType<typeof getCanonicalPreset>['prof
 function profileParameters(
   profile: ReturnType<typeof getCanonicalPreset>['profile'],
   intensity: number,
-  values: HarmonizationRefinements
+  values: HarmonizationRefinements,
+  telemetry?: SceneTelemetry
 ): HarmonizeParameters {
   const light = profile.inferredFeatures.lighting;
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+  const directionConfidence = clamp(telemetry?.confidence ?? 0, 0, 1);
+  const kelvinConfidence = clamp(telemetry?.kelvinConfidence ?? 0, 0, 1);
+  const signedAzimuth = (degrees: number) => ((degrees + 180) % 360 + 360) % 360 - 180;
+  const azimuthDelta = telemetry?.azimuth === null || telemetry?.azimuth === undefined
+    ? 0
+    : signedAzimuth(telemetry.azimuth - light.azimuthDeg);
+  const azimuthDeg = directionConfidence
+    ? clamp(signedAzimuth(light.azimuthDeg + azimuthDelta * directionConfidence), -180, 180)
+    : light.azimuthDeg;
+  const elevationDeg = directionConfidence && telemetry?.elevation !== null && telemetry?.elevation !== undefined
+    ? clamp(light.elevationDeg + (clamp(telemetry.elevation, 0, 90) - light.elevationDeg) * directionConfidence, 0, 90)
+    : light.elevationDeg;
+  const colorTempKelvin = kelvinConfidence && telemetry?.kelvin !== null && telemetry?.kelvin !== undefined
+    ? clamp(light.colorTempKelvin + (clamp(telemetry.kelvin, 2000, 12500) - light.colorTempKelvin) * kelvinConfidence, 2000, 12500)
+    : light.colorTempKelvin;
   return {
-    colorTempKelvin: light.colorTempKelvin,
-    dominantTintHex: '#ffffff',
-    azimuthDeg: light.azimuthDeg,
-    elevationDeg: light.elevationDeg,
+    colorTempKelvin,
+    dominantTintHex: telemetry?.ambientTintHex ?? '#ffffff',
+    ambientTintHex: telemetry?.ambientTintHex,
+    accentHex: telemetry?.accentHex,
+    targetLuminanceMean: telemetry?.luminanceMean,
+    targetLuminanceStdDev: telemetry?.luminanceStdDev,
+    azimuthDeg,
+    elevationDeg,
     intensity: Math.max(0, Math.min(1, intensity / 100)),
     edgeBleedPx: values.edgeFeather,
     shadowIntensity: values.contactShadow / 100,
@@ -127,6 +149,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
   const [harmonizedResult, setHarmonizedResult] = useState<HarmonizationResult | null>(null);
   const activeProfileIdRef = useRef(getCanonicalPreset().profile.id);
   const resultRevisionRef = useRef(0);
+  const harmonizationInvalidationRef = useRef<Promise<void>>(Promise.resolve());
   const [refinements, setRefinements] = useState<HarmonizationRefinements>({ contactShadow: 0, edgeFeather: 0, warmth: 0 });
   const [refinementReady, setRefinementReady] = useState(false);
   const refinementPendingRef = useRef(false);
@@ -167,7 +190,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
         try {
           const profile = preset.profile;
           const image = await applyPixelHarmonization(result.review!.backgroundImageUrl, inputs.foregroundImageUrl,
-            inputs.foregroundBounds, profileParameters(profile, intensity, values));
+            inputs.foregroundBounds, profileParameters(profile, intensity, values, analyzeStyle(getTelemetrySample())));
           await decodeImage(image);
           if (job !== refinementJobRef.current) return;
           const next = harmonizationResultSchema.parse({ ...draft, review: { ...draft.review,
@@ -260,19 +283,31 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     if (harmonizationRunRef.current || acceptingRef.current) return;
     harmonizationSettingsRef.current = settings;
     setError(null);
-    cancelRefinement();
-    resultRevisionRef.current++;
-    setFinishRequested(false);
+    invalidateHarmonizedResult();
+    const editRevision = resultRevisionRef.current;
     const run = new AbortController();
     harmonizationRunRef.current = run;
     setHarmonizationState({ busy: true, progress: 0, stage: 'Analyzing AristoColors...', error: null, notice: null });
     try {
+      await harmonizationInvalidationRef.current;
+      run.signal.throwIfAborted();
       const result = await prepareHarmonization(settings, run.signal, progress => {
         if (harmonizationRunRef.current === run) setHarmonizationState(current => ({ ...current, progress, stage: progress < 50 ? 'Analyzing AristoColors...' : 'Harmonizing composite...' }));
       });
       run.signal.throwIfAborted();
+      if (resultRevisionRef.current !== editRevision) {
+        throw new Error('The composition changed while harmonization was running. Run Harmonize again to process the latest pixels.');
+      }
       await storeHarmonizationResult(localImportToken ?? projectId, result, run.signal);
+      if (run.signal.aborted) {
+        await clearHarmonizationResult(localImportToken ?? projectId);
+        run.signal.throwIfAborted();
+      }
       if (!run.signal.aborted && harmonizationRunRef.current === run) {
+        if (resultRevisionRef.current !== editRevision) {
+          await harmonizationInvalidationRef.current;
+          throw new Error('The composition changed while harmonization was running. Run Harmonize again to process the latest pixels.');
+        }
         setHarmonizedResult(result);
         setCurrentStep('harmonize');
         setHarmonizationState({ busy: false, progress: 100, stage: '', error: null, notice: 'Photometric harmonization complete.' });
@@ -333,7 +368,24 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     }) };
   }
 
+  function invalidateHarmonizedResult() {
+    cancelRefinement();
+    resultRevisionRef.current++;
+    setHarmonizedResult(null);
+    setRefinementReady(false);
+    setReviewError(null);
+    setFinishRequested(false);
+    const clearResult = harmonizationInvalidationRef.current.catch(() => undefined)
+      .then(() => clearHarmonizationResult(localImportToken ?? projectId));
+    harmonizationInvalidationRef.current = clearResult;
+    void clearResult.catch(cause => {
+      console.error('Unable to clear a stale harmonization result:', cause);
+      setError(`Unable to clear stale harmonization result: ${cause instanceof Error ? cause.message : String(cause)}`);
+    });
+  }
+
   function recordHistory(snapshot = captureState()) {
+    invalidateHarmonizedResult();
     saveGenerationRef.current++;
     suppressSaveRef.current = false;
     setSaveStatus('unsaved');
@@ -1263,13 +1315,14 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       exportingRef.current = true;
       let url: string;
       const acceptedImage = getAcceptedHarmonizedImage(harmonizedResult);
-      if (acceptedImage) {
+      if (currentStep === 'finish') {
+        if (!acceptedImage) throw new Error('Accept the Harmonize result before exporting Finish.');
         url = acceptedImage;
-      } else if (currentStep === 'finish') {
-        throw new Error('Accept the Harmonize result before exporting Finish.');
       } else if (currentStep === 'harmonize') {
         if (!refinementReady || !harmonizedResult?.review?.refinedImageUrl) throw new Error('Wait for the harmonized image to finish processing before exporting.');
         url = harmonizedResult.review.refinedImageUrl;
+      } else if (acceptedImage) {
+        url = acceptedImage;
       } else {
         if (!canvas) throw new Error('Wait for the composition canvas to load before exporting.');
         url = canvas.toDataURL({ format: 'png', multiplier: 1 });
@@ -1289,41 +1342,26 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
     }
   }
 
-  function getTelemetrySample(): HTMLCanvasElement | null {
-    const canvas = canvasRef.current;
-    if (!canvas || !layers.length) return null;
-    const layer = layers.find(current => current.id === selectedLayerId);
-    let source: CanvasImageSource;
-    let width: number;
-    let height: number;
-    if (layer) {
-      // Inspect the selected image's own pixels, even when that layer is hidden.
-      source = layer.object.getElement();
-      width = layer.object.width;
-      height = layer.object.height;
-    } else {
-      const background = canvas.backgroundColor;
-      try {
-        exportingRef.current = true;
-        canvas.backgroundColor = '';
-        const scene = canvas.toCanvasElement(Math.min(1, 96 / Math.max(canvas.getWidth(), canvas.getHeight())));
-        source = scene;
-        width = scene.width;
-        height = scene.height;
-      } finally {
-        exportingRef.current = false;
-        canvas.backgroundColor = background;
-        canvas.requestRenderAll();
-      }
+  function getTelemetrySample(): ScenePixelData | null {
+    const layer = findVisibleBackgroundLayer(layers);
+    if (!layer) return null;
+    try {
+      const source = layer.object.getElement();
+      const width = layer.object.width;
+      const height = layer.object.height;
+      if (!width || !height) return null;
+      const ratio = Math.min(1, 96 / Math.max(width, height));
+      const sample = document.createElement('canvas');
+      sample.width = Math.max(1, Math.round(width * ratio));
+      sample.height = Math.max(1, Math.round(height * ratio));
+      const context = sample.getContext('2d', { willReadFrequently: true });
+      if (!context) return null;
+      context.drawImage(source, 0, 0, sample.width, sample.height);
+      const pixels = context.getImageData(0, 0, sample.width, sample.height);
+      return { width: sample.width, height: sample.height, data: pixels.data };
+    } catch {
+      return null;
     }
-    const sample = document.createElement('canvas');
-    const ratio = Math.min(1, 96 / Math.max(width, height));
-    sample.width = Math.max(1, Math.round(width * ratio));
-    sample.height = Math.max(1, Math.round(height * ratio));
-    const context = sample.getContext('2d', { willReadFrequently: true });
-    if (!context) return null;
-    context.drawImage(source, 0, 0, sample.width, sample.height);
-    return sample;
   }
 
   async function prepareHarmonization(settings: HarmonizationSettings, signal: AbortSignal, onProgress: (progress: number) => void): Promise<HarmonizationResult> {
@@ -1349,6 +1387,12 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       const context = pixels.getContext('2d');
       if (!context) throw new Error('Unable to copy layer pixels for harmonization.');
       context.drawImage(original.getElement(), 0, 0, pixels.width, pixels.height);
+      const mask = masksRef.current.get(layer.id);
+      if (mask) {
+        context.globalCompositeOperation = 'destination-in';
+        context.drawImage(mask, 0, 0, pixels.width, pixels.height);
+        context.globalCompositeOperation = 'source-over';
+      }
       const object = new FabricImage(pixels, {
         left: original.left, top: original.top, originX: original.originX, originY: original.originY,
         scaleX: original.scaleX, scaleY: original.scaleY, angle: original.angle,
@@ -1365,6 +1409,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       for (const entry of clones) (entry.isBase ? background : foreground).add(entry.object);
       const preset = getCanonicalPreset(activeProfileIdRef.current);
       const values = profileRefinements(preset.profile);
+      const backgroundTelemetry = analyzeStyle(getTelemetrySample());
       const [rw, rh] = settings.aspectRatio.split(':').map(Number);
       const unit = Math.ceil(Math.max(width / rw, height / rh));
       const targetWidth = unit * rw, targetHeight = unit * rh;
@@ -1398,7 +1443,7 @@ export function StepOneStudio({ projectId, projectTitle, initialArtworkUrl, loca
       const beforeImageUrl = frame(await decodeImage(compositeImage)).toDataURL('image/png');
       signal.throwIfAborted(); onProgress(50);
       const refinedImageUrl = await applyPixelHarmonization(backgroundImageUrl, foregroundImageUrl,
-        foregroundBounds, profileParameters(preset.profile, settings.intensity, values));
+        foregroundBounds, profileParameters(preset.profile, settings.intensity, values, backgroundTelemetry));
       signal.throwIfAborted(); await decodeImage(refinedImageUrl); signal.throwIfAborted(); onProgress(95);
       const palette = preset.profile.deterministicFeatures.palette;
       return harmonizationResultSchema.parse({ success: true, resultImageUrl: refinedImageUrl,

@@ -1,5 +1,7 @@
 import { harmonizationResultSchema, type HarmonizationResult } from '@/lib/studio/harmonization-contract';
 
+const RESULT_ENGINE_VERSION = 2;
+
 function openResults(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('aristocolors-harmonization', 1);
@@ -19,7 +21,7 @@ export async function storeHarmonizationResult(projectId: string, result: Harmon
       const cancel = () => transaction.abort();
       signal?.addEventListener('abort', cancel, { once: true });
       const cleanUp = () => signal?.removeEventListener('abort', cancel);
-      transaction.objectStore('results').put(result, projectId);
+      transaction.objectStore('results').put({ engineVersion: RESULT_ENGINE_VERSION, result }, projectId);
       transaction.oncomplete = () => { cleanUp(); resolve(); };
       transaction.onerror = () => { cleanUp(); reject(transaction.error); };
       transaction.onabort = () => { cleanUp(); reject(transaction.error ?? new Error('Result storage was interrupted.')); };
@@ -35,7 +37,9 @@ export async function loadHarmonizationResult(projectId: string): Promise<Harmon
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    return value === undefined ? null : harmonizationResultSchema.parse(value);
+    if (!value || typeof value !== 'object' || !('engineVersion' in value) || value.engineVersion !== RESULT_ENGINE_VERSION ||
+        !('result' in value)) return null;
+    return harmonizationResultSchema.parse(value.result);
   } finally { db.close(); }
 }
 

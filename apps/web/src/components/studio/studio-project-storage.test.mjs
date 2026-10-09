@@ -17,6 +17,7 @@ function fixture(quota = false) {
         objectStore() {
           return {
             put(value, key) { records.set(key, structuredClone(value)); queueMicrotask(() => transaction.oncomplete?.()); },
+            delete(key) { records.delete(key); queueMicrotask(() => transaction.oncomplete?.()); },
             get(key) {
               const request = {};
               queueMicrotask(() => { request.result = records.get(key); request.onsuccess?.(); });
@@ -53,6 +54,7 @@ function fixture(quota = false) {
     localStorage: {
       get length() { return local.size; }, key(i) { return [...local.keys()][i]; }, getItem(key) { return local.get(key) ?? null; },
       setItem(key, value) { writes.push(value); if (quota) throw Object.assign(new Error('full'), { name: 'QuotaExceededError' }); local.set(key, value); },
+      removeItem(key) { local.delete(key); },
     },
   });
   const manifest = { version: 1, title: 'Edited Temple', activeAristoColorsId: 'test', selectedLayerId: 'base', width: 1920, height: 1080,
@@ -93,4 +95,19 @@ test('superseded save does not overwrite stored project', async () => {
   await f.saveStudioManifest(key, f.manifest, () => false, summary);
   assert.equal(f.records.size, 0);
   assert.equal(f.writes.length, 0);
+});
+
+test('deleting a project removes its canonical index and image asset so it is no longer listed', async () => {
+  const f = fixture();
+  await f.saveStudioManifest(key, f.manifest, () => true, summary);
+  const assetKey = JSON.parse(f.local.get(key)).assetKey;
+  assert(f.records.has(key));
+  assert(f.records.has(assetKey));
+
+  await f.clearStudioManifest(key);
+
+  assert.equal(f.local.has(key), false);
+  assert.equal(f.records.has(key), false);
+  assert.equal(f.records.has(assetKey), false);
+  assert.equal((await f.listStudioProjectIndexes()).length, 0);
 });
